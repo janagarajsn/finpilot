@@ -6,6 +6,8 @@ FinPilot categorizes your transactions, finds anomalies and forgotten subscripti
 
 The rule behind every feature: **numbers come from code; language models only classify, parse, choose and phrase**. Every number an LLM writes is checked against computed facts before anyone sees it.
 
+**New to FinPilot? Read the [user guide](docs/USER_GUIDE.md)**: a task-by-task walkthrough of every page, from loading sample data to what-ifs, advice, chat and settings.
+
 - **Stack:** FastAPI + Jinja/htmx/Alpine UI, PostgreSQL 16 (pgvector, row-level security) as the only database, Redis, Celery + beat, LangGraph (Redis checkpointer) and Langfuse.
 - **Models:** every LLM and embedding call goes through the Mesh API.
 - **Exchange rates:** come from our own FX MCP server, with a four-step fallback chain.
@@ -45,6 +47,8 @@ open http://localhost:8000       # sign in, or register (the first registered ac
 - **Production:** HTTPS with Caddy and backups; see [DEPLOY.md](DEPLOY.md).
 
 ## What you can do
+
+For how to use each feature, see the [user guide](docs/USER_GUIDE.md).
 
 | Area | What it does |
 |---|---|
