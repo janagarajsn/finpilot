@@ -1,0 +1,7 @@
+# PINNED, APPROXIMATE fallback rates — used only when the FX MCP server, the direct HTTP source
+# and stored rates are all unavailable. Anything converted with these is flagged
+# "approximate rates" in the UI and digests. Units: INR per 1 unit of the currency.
+label: approximate
+as_of: "2026-10-15"
+rates_inr_per_unit:
+  USD: "95.06"

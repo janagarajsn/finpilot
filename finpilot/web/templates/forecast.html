@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Forecast &amp; what-if{% endblock %}
+{% block head_scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="/static/js/forecast.js"></script>
+{% endblock %}
+{% block content %}
+{% set cur = fc.currency %}
+{% set o = fc.outcome %}
+{% set VERDICT = {'affordable': ('Comfortable', 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'), 'risky': ('Tight', 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'), 'not_affordable': ('At risk', 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200')} %}
+<div x-data="whatIf">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Forecast &amp; what-if</h1>
+    <p class="text-sm text-muted max-w-3xl">Your balance for the next {{ fc.horizon }} days, simulated {{ '{:,}'.format(fc.n_paths) }} times from your scheduled bills and incomes and your usual spending. The band shows a bad case (10th percentile) to a good case (90th). Amounts in {{ cur }} · as of {{ fc.as_of.strftime('%d %b %Y') }}.</p>
+  </div>
+  <a href="/app/forecast?refresh=1" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Recompute</a>
+</div>
+
+{% if fc.low_confidence %}
+<div role="status" class="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-3 text-sm"><strong>Low-confidence forecast.</strong> You have {{ fc.months_of_data }} months of history; the band is widened. Add or import more transactions for a sharper forecast.</div>
+{% endif %}
+{% if fc.approximate %}<p class="mb-4 text-xs text-muted">Some amounts use approximate exchange rates.</p>{% endif %}
+
+<section aria-labelledby="fk-h" class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <h2 id="fk-h" class="sr-only">Forecast summary</h2>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><div class="eyebrow">Balance today</div><div class="mt-1 text-xl font-semibold">{{ fc.start_balance|money(cur) }}</div></div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><div class="eyebrow">In {{ fc.horizon }} days</div><div class="mt-1 text-xl font-semibold">{{ o.end_p50|money(cur) }}</div><div class="text-xs text-muted">Bad case {{ o.end_p10|money(cur) }}</div></div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><div class="eyebrow">Lowest point</div><div class="mt-1 text-xl font-semibold">{{ o.min_p10|money(cur) }}</div><div class="text-xs text-muted">Bad case · {{ o.min_p10_date|day }}</div></div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><div class="eyebrow">Chance of dipping</div><div class="mt-1 text-xl font-semibold">{{ (o.p_below_buffer * 100)|round|int }}%</div><div class="text-xs text-muted">Below your {{ fc.buffer|money(cur) }} cushion · {{ (o.p_below_zero * 100)|round|int }}% below zero</div></div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><div class="eyebrow">Projected savings</div><div class="mt-1 text-xl font-semibold {{ 'text-pos' if fc.projected_monthly_savings > 0 else 'text-neg' }}">{{ fc.projected_monthly_savings|money(cur) }}</div><div class="text-xs text-muted" title="Income minus spending, per month. Money you move into savings or investments counts as saved.">Per month{% if fc.to_savings_monthly > 0 %} · incl. {{ fc.to_savings_monthly|money(cur) }} scheduled into investments{% endif %}</div>{% if fc.unprojected_savings_monthly > 0 %}<div class="note text-xs" title="One-off moves into savings or investments (fixed deposits, lump-sum purchases) are your decision, so the forecast does not repeat them. Make one recurring to include it.">One-off investments (about {{ fc.unprojected_savings_monthly|money(cur) }}/month lately) aren't projected</div>{% endif %}
+    <span class="badge mt-1 {{ VERDICT[o.verdict][1] }}">{{ VERDICT[o.verdict][0] }}</span></div>
+</section>
+
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="fc-h">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <h2 id="fc-h" class="font-semibold">Projected balance</h2>
+    <p class="text-xs text-muted" x-show="result" x-cloak style="display:none">Dashed: with your what-if (same simulated futures, so the difference is only the change).</p>
+  </div>
+  <div class="h-72"><canvas id="forecast-chart" role="img" aria-label="Projected balance with a 10th to 90th percentile band"></canvas></div>
+</section>
+
+<div class="grid lg:grid-cols-5 gap-6 mb-6">
+  <section class="lg:col-span-3 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="wi-h">
+    <h2 id="wi-h" class="font-semibold mb-1">What if…?</h2>
+    <p class="text-sm text-muted mb-3">Ask in your own words, or use the form. The AI only reads your question; every number comes from the simulation.</p>
+    <form @submit.prevent="ask" class="flex gap-2 mb-2">
+      <label for="wi-q" class="sr-only">Your question</label>
+      <input id="wi-q" x-model="question" maxlength="500" placeholder="Can I afford a {{ '₹80,000' if cur == 'INR' else '$1,200' }} trip next month?" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+      <button class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm" :disabled="busy">Ask</button>
+    </form>
+    <div x-show="pending" x-cloak style="display:none" class="mb-3 rounded-lg bg-brand-50 dark:bg-slate-800 p-3 text-sm">
+      <p class="font-medium" x-text="pending && pending.question"></p>
+      <form @submit.prevent="resume" class="mt-2 flex gap-2">
+        <label for="wi-r" class="sr-only">Your answer</label>
+        <input id="wi-r" x-model="reply" maxlength="300" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1.5">
+        <button class="rounded-lg bg-brand-600 text-white px-3 py-1.5" :disabled="busy">Answer</button>
+      </form>
+    </div>
+    <details class="mb-2" :open="formOpen">
+      <summary class="cursor-pointer text-sm text-accent">Use the form</summary>
+      <form @submit.prevent="simulate" class="mt-3 grid sm:grid-cols-3 gap-3 text-sm">
+        <label class="sm:col-span-3">Change<select x-model="form.type" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+          <option value="one_time_purchase">One-time purchase</option><option value="recurring_cost">New recurring cost</option>
+          <option value="loan_or_installments">Loan or installments</option><option value="cancel_subscription">Cancel a subscription</option>
+          <option value="category_cut">Spend less in a category</option><option value="income_change">Income change (%)</option>
+          <option value="savings_transfer">Transfer to savings</option></select></label>
+        <label x-show="['one_time_purchase','recurring_cost','savings_transfer','loan_or_installments'].includes(form.type)">Amount<input x-model="form.amount" type="number" min="0.01" step="0.01" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <label x-show="['one_time_purchase','recurring_cost','savings_transfer','loan_or_installments'].includes(form.type)">Currency<select x-model="form.currency" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><option value="">{{ cur }}</option>{% for c in ctx.currencies if c != cur %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></label>
+        <label x-show="form.type !== 'income_change'">When<input x-model="form.date" type="date" x-datepicker class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <label x-show="form.type === 'recurring_cost'">Every<select x-model="form.frequency" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><option value="monthly">month</option><option value="weekly">week</option><option value="yearly">year</option></select></label>
+        <label x-show="form.type === 'savings_transfer'">How often<select x-model="form.frequency2" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><option value="monthly">monthly</option><option value="once">once</option></select></label>
+        <label x-show="form.type === 'loan_or_installments'">Months<input x-model="form.n" type="number" min="1" max="120" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <label x-show="form.type === 'loan_or_installments'">Interest % / year<input x-model="form.apr" type="number" min="0" max="100" step="0.1" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <label x-show="form.type === 'cancel_subscription'" class="sm:col-span-2">Subscription<select x-model="form.subscription_id" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><template x-for="s in subscriptions" :key="s.id"><option :value="s.id" x-text="s.merchant + ' · ' + money(s.amount, s.currency)"></option></template></select></label>
+        <label x-show="form.type === 'category_cut'">Category<select x-model="form.category" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><template x-for="c in categories" :key="c.id"><option :value="c.name" x-text="c.name"></option></template></select></label>
+        <label x-show="['category_cut','income_change'].includes(form.type)">Percent<input x-model="form.pct" type="number" min="-100" max="500" step="1" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <div class="sm:col-span-3 flex justify-end"><button class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2" :disabled="busy">Simulate</button></div>
+      </form>
+    </details>
+    <div x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+    <div x-show="busy" x-cloak style="display:none" class="text-sm text-muted">Simulating…</div>
+    <div x-show="result" x-cloak style="display:none" class="mt-3 rounded-xl ring-1 ring-slate-200 dark:ring-slate-700 p-4" aria-live="polite">
+      <span class="badge" :class="badge(result && result.result.verdict)" x-text="label(result && result.result.verdict)"></span>
+      <p class="mt-2 text-sm" x-text="answer"></p>
+      <ul class="mt-2 text-xs text-muted space-y-1">
+        <template x-for="lv in (result ? result.levers : [])"><li>✓ Verified lever: <span x-text="leverText(lv)"></span></li></template>
+      </ul>
+    </div>
+  </section>
+
+  <section class="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="me-h">
+    <h2 id="me-h" class="font-semibold mb-3">Month by month</h2>
+    <table class="w-full text-sm"><thead class="eyebrow text-left"><tr><th class="py-1">Month</th><th class="pl-3 text-right">Bad case</th><th class="pl-3 text-right">Typical</th><th class="pl-3 text-right">Good case</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for m in fc.month_ends %}<tr><td class="py-1.5">{{ m.date|month }}{% if m.partial %} <span class="note text-xs" title="Up to {{ m.date|day }}">partial</span>{% endif %}</td><td class="pl-3 text-right {{ 'text-neg' if m.p10 < fc.buffer }}">{{ m.p10|money(cur) }}</td><td class="pl-3 text-right">{{ m.p50|money(cur) }}</td><td class="pl-3 text-right">{{ m.p90|money(cur) }}</td></tr>{% endfor %}</tbody></table>
+    <h3 class="font-medium mt-5 mb-2 text-sm">Coming up</h3>
+    <ul class="text-sm space-y-1 max-h-48 overflow-y-auto" tabindex="0">{% for it in fc.scheduled[:12] %}<li class="flex justify-between gap-2"><span class="truncate">{{ it.date|day }} · {{ it.label }}{% if it.source == 'detected' %} <span class="note text-xs">expected</span>{% endif %}</span><span class="{{ 'text-pos' if it.amount > 0 else '' }} whitespace-nowrap">{{ it.amount|money(cur) }}</span></li>{% else %}<li class="text-muted">No scheduled bills or incomes. <a class="text-accent hover:underline" href="/app/recurring">Add one</a>.</li>{% endfor %}</ul>
+    <h3 class="font-medium mt-5 mb-2 text-sm">Usual spending <span class="qualifier">· Per month</span></h3>
+    <ul class="text-sm space-y-1">{% for st in fc.streams[:6] %}<li class="flex justify-between"><span>{{ st.label }}</span><span>{{ st.monthly|money(cur) }}</span></li>{% endfor %}</ul>
+  </section>
+</div>
+
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="goals-h" x-data="goalForm">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 id="goals-h" class="font-semibold">Goals</h2>
+    <button type="button" @click="open = !open" class="text-sm text-accent hover:underline">+ New goal</button>
+  </div>
+  <form x-show="open" x-cloak style="display:none" @submit.prevent="save" class="mb-4 grid sm:grid-cols-5 gap-3 text-sm">
+    <label>Type<select x-model="g.kind" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"><option value="savings_target">Save up</option><option value="spend_cap">Monthly cap</option><option value="debt_payoff">Pay off a debt</option></select></label>
+    <label>Name<input x-model="g.name" required maxlength="100" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label>Target ({{ cur }})<input x-model="g.target_amount" required type="number" min="1" step="0.01" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label x-show="g.kind !== 'spend_cap'"><span x-text="g.kind === 'debt_payoff' ? 'Repaid so far' : 'Saved so far'"></span><input x-model="g.saved_amount" type="number" min="0" step="0.01" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label x-show="g.kind !== 'spend_cap'">By (optional)<input x-model="g.target_date" type="date" x-datepicker class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label x-show="g.kind !== 'savings_target'"><span x-text="g.kind === 'debt_payoff' ? 'Paid from category' : 'Category'"></span><select x-model="g.category_id" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">{% for c in cats %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+    <div class="sm:col-span-5 flex justify-end gap-2"><span class="text-neg self-center" x-text="error"></span><button class="rounded-lg bg-brand-600 text-white px-4 py-2">Save goal</button></div>
+  </form>
+  {% if fc.goals %}
+  <ul class="grid md:grid-cols-2 gap-4">
+    {% for g in fc.goals %}
+    <li class="rounded-xl ring-1 ring-slate-200 dark:ring-slate-800 p-4 text-sm">
+      <div class="flex justify-between gap-2"><span class="font-medium">{{ g.name }}</span>
+        <span class="text-xs rounded px-1.5 py-0.5 {{ 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' if g.status in ('on_track','reached','within') else 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' }}">{{ {'on_track':'On track','reached':'Reached','behind':'Behind','not_on_track':'Not on track','within':'Within cap','over':'Over cap'}[g.status] }}</span></div>
+      {% if g.kind == 'debt_payoff' %}
+      <div class="mt-2 h-2 rounded bg-slate-100 dark:bg-slate-800"><div class="h-2 rounded bg-emerald-600" style="width: {{ [g.progress_pct, 100]|min }}%"></div></div>
+      <p class="mt-2 text-soft">{{ g.paid|money(cur) }} of {{ g.target|money(cur) }} repaid.
+        {% if g.eta %}At {{ g.monthly_payment|money(cur) }}/month in {{ g.category or 'payments' }} you are debt-free around {{ g.eta[:7] }}.{% elif g.status == 'not_on_track' %}No payments for it in your forecast yet: pick the category the payments go to.{% endif %}
+        {% if g.required_monthly %} Needed: {{ g.required_monthly|money(cur) }}/month.{% endif %}</p>
+      {% elif g.kind == 'savings_target' %}
+      <div class="mt-2 h-2 rounded bg-slate-100 dark:bg-slate-800"><div class="h-2 rounded bg-brand-600" style="width: {{ [g.progress_pct, 100]|min }}%"></div></div>
+      <p class="mt-2 text-soft">{{ g.saved|money(cur) }} of {{ g.target|money(cur) }} saved.
+        {% if g.eta %}At {{ g.monthly_savings|money(cur) }}/month you reach it around {{ g.eta[:7] }}.{% elif g.status == 'not_on_track' %}Your forecast shows no monthly savings yet.{% endif %}
+        {% if g.required_monthly %} Needed: {{ g.required_monthly|money(cur) }}/month.{% endif %}</p>
+      {% else %}
+      <p class="mt-2 text-soft">{{ g.category }}: {{ g.month_to_date|money(cur) }} so far, about {{ g.projected|money(cur) }} expected this month vs a {{ g.cap|money(cur) }} cap{% if g.over_by %} ({{ g.over_by|money(cur) }} over){% endif %}.</p>
+      {% endif %}
+      {% set h = history.get(g.id) %}{% if h and h|length > 1 %}{% set d = (h[-1].progress_amount - h[-2].progress_amount) %}
+      <p class="mt-1 text-xs text-muted">Since {{ h[-2].week_key }}: {{ ('+' if d >= 0 else '') }}{{ d|money(cur) }}{% if h[-1].status != h[-2].status %} · was {{ h[-2].status|replace('_', ' ') }}{% endif %} · {{ h|length }} weekly snapshots</p>{% endif %}
+      <button type="button" data-fp-delete="/goals/{{ g.id }}" data-confirm="Delete this goal?" class="mt-2 text-xs text-muted hover:text-neg">Delete</button>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="text-sm text-muted">No goals yet. Add a savings target or a monthly spending cap to see whether your forecast gets you there.</p>{% endif %}
+</section>
+</div>
+<script type="application/json" id="fp-forecast">{{ data|tojson }}</script>
+{% endblock %}

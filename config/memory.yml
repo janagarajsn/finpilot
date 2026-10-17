@@ -1,0 +1,32 @@
+# Short- and long-term memory settings (BUILD_PROMPT §MEMORY).
+short_term:
+  max_turns: 12                 # last N turns (user + assistant messages) kept verbatim per chat session
+  ttl_hours: 24                 # Redis chat:{user}:{session}; rebuilt from chat_messages on a miss
+  token_budget: 1500            # older turns are folded into a rolling summary beyond this (≈ chars / 4)
+
+long_term:
+  dedupe_similarity: 0.90       # a new memory this close to an active one updates it instead of adding a row
+  lexical_dedupe_similarity: 0.80   # trigram similarity used for the same check without embeddings
+  min_confidence: 0.6           # extracted candidates below this are dropped
+
+retrieval:
+  top_k: 5
+  token_budget: 400             # memories injected into a prompt (≈ chars / 4)
+  weights: {similarity: 0.60, recency: 0.25, importance: 0.15}
+  recency_half_life_days: 30    # recency = 0.5 ** (age_days / half_life), age from last use or update
+  min_similarity: 0.25          # embedding cosine below this is not a match
+  min_lexical: 0.05             # ts_rank / trigram score below this is not a match
+
+writer:
+  idle_minutes: 15              # a chat session idle this long is consolidated by the memory_consolidation tick
+  max_transcript_chars: 6000
+  max_candidates: 6
+
+# Never stored: account/card numbers, credentials, one-time codes (BUILD_PROMPT: "NOT stored").
+# A candidate whose text matches any of these is dropped before it reaches the database.
+blocked_patterns:
+  - '\b\d{9,18}\b'                                  # account / card numbers (long digit runs)
+  - '\b(?:\d{4}[ -]){3}\d{4}\b'                     # card numbers with separators
+  - '\b[A-Z]{4}0[A-Z0-9]{6}\b'                      # IFSC codes
+  - '(?i)\b(password|passcode|pin|otp|cvv|one[- ]time code|login)\b\s*(is|:|=)'
+  - '(?i)\b(api[_ -]?key|secret|token)\b\s*(is|:|=)'

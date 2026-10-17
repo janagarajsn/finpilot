@@ -1,0 +1,20 @@
+Hi {{ name }}, here is your FinPilot week ({{ period_label }}).
+{% if preview %}
+[PREVIEW: generated on demand, not your scheduled digest]
+{% endif %}
+KEY INSIGHT
+{{ insight }}
+
+ONE ACTION
+{{ action }}
+{% if goals %}
+GOALS
+{% for g in goals %}- {{ g }}
+{% endfor %}{% endif %}{% if bills %}
+NEXT 14 DAYS
+{% for b in bills %}- {{ b }}
+{% endfor %}{% endif %}{% for n in notices %}
+{{ n }}
+{% endfor %}
+Open FinPilot: {{ app_url }}/app/inbox
+Change or stop these digests: {{ app_url }}/account

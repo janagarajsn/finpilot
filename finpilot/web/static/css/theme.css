@@ -1,0 +1,60 @@
+/* Theme-aware text colours (WCAG AA ≥ 4.5:1 on every surface they are used on, light and dark).
+   Templates use the Tailwind names text-muted / text-soft / text-accent / text-pos / text-neg /
+   text-warn (tw-config.js maps them to these variables), never raw slate/brand shades for text. */
+:root {
+  --fp-muted: 91 102 117;    /* #5b6675  secondary text */
+  --fp-soft: 71 85 105;      /* #475569  body copy on cards */
+  --fp-accent: 36 89 201;    /* #2459c9  links, active nav */
+  --fp-pos: 4 120 87;        /* #047857  income, gains */
+  --fp-neg: 190 18 60;       /* #be123c  spend, losses */
+  --fp-warn: 146 64 14;      /* #92400e  warnings */
+}
+.dark {
+  --fp-muted: 148 163 184;   /* #94a3b8 */
+  --fp-soft: 203 213 225;    /* #cbd5e1 */
+  --fp-accent: 122 165 255;  /* #7aa5ff */
+  --fp-pos: 52 211 153;      /* #34d399 */
+  --fp-neg: 251 113 133;     /* #fb7185 */
+  --fp-warn: 251 191 36;     /* #fbbf24 */
+}
+html { font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif; font-feature-settings: "cv11", "ss01"; }
+.num, td.text-right, .tabular { font-variant-numeric: tabular-nums; }
+/* links inside running text are underlined (not distinguishable by colour alone) */
+p a:not([class*="rounded"]), li > p a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* Typographic roles (one look per role across every page):
+   .eyebrow  small uppercase label above a value or a group: KPI labels, section groups, table headers
+   .badge    uppercase status chip (colours come from the element's own bg/text classes)
+   .note     muted italic aside: provenance, estimates, hints
+   .qualifier lighter part of a heading: "Where it went · Last 30 days" */
+.eyebrow { font-size: .75rem; line-height: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: rgb(var(--fp-muted)); }
+.badge { display: inline-block; font-size: .65rem; line-height: 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; border-radius: .25rem; padding: 0 .375rem; white-space: nowrap; }
+.note { font-style: italic; color: rgb(var(--fp-muted)); }
+.qualifier { font-weight: 400; color: rgb(var(--fp-muted)); }
+/* money and counts line up in KPI cards and tables (only there: tabular figures also widen
+   punctuation such as the hyphen in "what-if") */
+.eyebrow + div, main td, main dd { font-variant-numeric: tabular-nums; }
+
+/* Date picker (flatpickr, js/datepicker.js) in the app's palette. flatpickr.css loads after this
+   file, so every rule is prefixed with html / .dark to win on specificity. */
+html .flatpickr-calendar { font-family: inherit; border-radius: .75rem; box-shadow: 0 10px 25px -5px rgb(15 23 42 / .15), 0 0 0 1px rgb(226 232 240); }
+html .flatpickr-day.selected, html .flatpickr-day.selected:hover, html .flatpickr-day.selected:focus { background: #2459c9; border-color: #2459c9; color: #fff; }
+html .flatpickr-day.today:not(.selected) { border-color: #2459c9; }
+html .flatpickr-day.prevMonthDay, html .flatpickr-day.nextMonthDay { color: rgb(var(--fp-muted)); }
+html .flatpickr-day.flatpickr-disabled { color: rgb(var(--fp-muted) / .5); }
+html span.flatpickr-weekday, .dark span.flatpickr-weekday { color: rgb(var(--fp-muted)); font-weight: 600; }
+.dark .flatpickr-calendar { background: #0f172a; box-shadow: 0 10px 25px -5px rgb(0 0 0 / .5), 0 0 0 1px #334155; }
+.dark .flatpickr-calendar.arrowTop::after { border-bottom-color: #0f172a; }
+.dark .flatpickr-calendar.arrowBottom::after { border-top-color: #0f172a; }
+.dark .flatpickr-calendar.arrowTop::before, .dark .flatpickr-calendar.arrowBottom::before { border-color: transparent; }
+.dark .flatpickr-months .flatpickr-month, .dark .flatpickr-current-month input.cur-year,
+.dark .flatpickr-current-month .flatpickr-monthDropdown-months { color: #e2e8f0; fill: #e2e8f0; background: transparent; }
+.dark .flatpickr-current-month .flatpickr-monthDropdown-months option { background: #0f172a; }
+.dark .flatpickr-months .flatpickr-prev-month, .dark .flatpickr-months .flatpickr-next-month { color: #e2e8f0; fill: #e2e8f0; }
+.dark .flatpickr-months .flatpickr-prev-month:hover svg, .dark .flatpickr-months .flatpickr-next-month:hover svg { fill: #7aa5ff; }
+.dark .numInputWrapper span.arrowUp::after { border-bottom-color: #e2e8f0; }
+.dark .numInputWrapper span.arrowDown::after { border-top-color: #e2e8f0; }
+.dark .flatpickr-day { color: #e2e8f0; }
+.dark .flatpickr-day:hover, .dark .flatpickr-day:focus, .dark .flatpickr-day.prevMonthDay:hover, .dark .flatpickr-day.nextMonthDay:hover { background: #1e293b; border-color: #1e293b; }
+.dark .flatpickr-day.today:not(.selected) { border-color: #7aa5ff; }
+.dark .flatpickr-day.today:not(.selected):hover { color: #e2e8f0; }

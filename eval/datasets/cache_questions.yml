@@ -1,0 +1,34 @@
+# Labelled phrasings for the cache & latency suite (session mix + router accuracy). `weight` =
+# how often the intent is asked in the simulated session (Zipf-like: the three dashboard
+# questions dominate). Paraphrases are deliberately varied; never edit to make a run pass.
+intents:
+  spending_trend:
+    weight: 30
+    questions: ["How is my spending trend?", "Is my spending going up?", "How much did I spend this month?", "how am i doing on spending", "Has my spending changed compared to last month?"]
+  where_to_save:
+    weight: 25
+    questions: ["Where can I save more?", "How can I cut costs?", "Where could I save money?", "Give me ways to reduce my expenses", "What should I cut back on?"]
+  where_overspending:
+    weight: 20
+    questions: ["Where am I spending the most?", "Where does all my money go?", "Am I overspending anywhere?", "Which areas am I spending too much on?", "where am i wasting money"]
+  upcoming_bills:
+    weight: 8
+    questions: ["What's coming up?", "What bills are due next week?", "Any upcoming payments?", "What do I have to pay soon?"]
+  top_categories:
+    weight: 5
+    questions: ["What are my top categories?", "Show my category breakdown", "Which category costs me most?"]
+  subscription_review:
+    weight: 4
+    questions: ["Review my subscriptions", "How much do my subscriptions cost?", "Which recurring charges do I have?"]
+  savings_rate:
+    weight: 3
+    questions: ["What's my savings rate?", "Am I saving enough this month?", "How much did I save last month?"]
+  income_summary:
+    weight: 2
+    questions: ["How much did I earn this month?", "Show my income", "What was my salary last month?"]
+  goal_status:
+    weight: 2
+    questions: ["Am I on track for my goals?", "How are my goals doing?"]
+  afford_purchase:
+    weight: 1
+    questions: ["Can I afford a ₹40,000 phone?", "What if I buy a laptop for 80k next month?"]

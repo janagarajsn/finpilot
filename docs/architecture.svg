@@ -1,0 +1,374 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="ttl dsc">
+<title id="ttl">FinPilot architecture</title>
+<desc id="dsc">FinPilot: multi-agent personal-finance co-pilot. Interfaces, FastAPI, LangGraph agents with guardrails, Celery workers, PostgreSQL and Redis, Mesh API, FX MCP server and Langfuse.</desc>
+<defs>
+<symbol id="i-chat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></g></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/></g></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></g></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M6 15l4-5 4 3 6-7"/></g></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></g></symbol>
+<symbol id="i-memory" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></g></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></g></symbol>
+<symbol id="i-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></g></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></g></symbol>
+<symbol id="i-route" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v4h12V7M12 11v6"/></g></symbol>
+<symbol id="i-nodes" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="18" r="2.2"/><path d="M11 7l-5 9M13 7l5 9M7.2 18h9.6"/></g></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/></g></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></g></symbol>
+<symbol id="i-help" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></g></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></g></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></g></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></g></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></g></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></g></symbol>
+<symbol id="i-admin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="4"/><path d="M3 21c1-4 4-6 7-6 1.5 0 2.8.4 4 1.1"/><path d="M18 14l1 2 2 .3-1.5 1.5.4 2.2-1.9-1-1.9 1 .4-2.2L15 16.3l2-.3z"/></g></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></g></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></g></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></g></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></g></symbol>
+<symbol id="i-eyeoff" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 10 6 10 6a17 17 0 0 1-3 3.6M6.6 6.6A17 17 0 0 0 2 12s4 6 10 6a10 10 0 0 0 4.4-1"/></g></symbol>
+<symbol id="i-ban" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></g></symbol>
+<symbol id="i-braces" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4c-2 0-2 1-2 3s-1 3-2 5c1 2 2 3 2 5s0 3 2 3M16 4c2 0 2 1 2 3s1 3 2 5c-1 2-2 3-2 5s0 3-2 3"/></g></symbol>
+<symbol id="i-box" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 12h8M8 15h5"/></g></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></g></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5"/><circle cx="17" cy="8" r="2.8"/><path d="M17 14.5c2.6.2 4.4 2 5 5"/></g></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M6 7h12v4a6 6 0 0 1-12 0zM12 17v5"/></g></symbol>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker>
+<marker id="ah-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker>
+<linearGradient id="hdr" x1="0" x2="1"><stop offset="0" stop-color="#132c63"/><stop offset="1" stop-color="#2459c9"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="1600" height="1000" rx="0" fill="#f4f7fb" stroke="none" stroke-width="1"/>
+<rect x="24" y="22" width="64" height="64" rx="16" fill="url(#hdr)" stroke="none" stroke-width="1"/>
+<path d="M36 70l12-14 9 7 19-21" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="76" cy="42" r="4" fill="#7dd3fc"/>
+<text x="100" y="62" font-size="38" fill="#132c63" font-weight="800" text-anchor="start">FinPilot</text>
+<text x="100" y="86" font-size="14" fill="#475569" font-weight="500" text-anchor="start">Agentic AI for personal finance</text>
+<text x="100" y="104" font-size="14" fill="#475569" font-weight="500" text-anchor="start">India (₹) and the US ($), multi-user</text>
+<text x="430" y="50" font-size="30" fill="#132c63" font-weight="800" text-anchor="start">AI-Powered Personal Finance Co-pilot</text>
+<text x="430" y="76" font-size="14" fill="#475569" font-weight="400" text-anchor="start">From a plain-language question to a verified answer: numbers come from code, language models only classify, parse, choose and phrase.</text>
+<rect x="430" y="96" width="300" height="76" rx="12" fill="#eef6ff" stroke="#b8d4ff" stroke-width="1"/>
+<circle cx="457.0" cy="125.0" r="18" fill="#fff"/>
+<use href="#i-user" x="444" y="112" width="26" height="26" color="#2459c9"/>
+<text x="484" y="120" font-size="13" fill="#1d47a1" font-weight="700" text-anchor="start">Example question</text>
+<text x="484" y="142" font-size="15" fill="#1e293b" font-weight="500" text-anchor="start" font-style="italic">“Can I afford a ₹80,000</text>
+<text x="484" y="161" font-size="15" fill="#1e293b" font-weight="500" text-anchor="start" font-style="italic">trip next month?”</text>
+<path d="M732 134 q14 -2 22 0" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#ah)"/>
+<circle cx="820.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-route" x="805" y="100" width="30" height="30" color="#2459c9"/>
+<text x="820" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Route intent</text>
+<text x="820" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">rules → embeddings → LLM</text>
+<line x1="852" y1="115" x2="922" y2="115" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="954.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-braces" x="939" y="100" width="30" height="30" color="#2459c9"/>
+<text x="954" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Parse what-if</text>
+<text x="954" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">typed scenario</text>
+<line x1="986" y1="115" x2="1056" y2="115" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1088.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-help" x="1073" y="100" width="30" height="30" color="#2459c9"/>
+<text x="1088" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Ask if missing</text>
+<text x="1088" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">pauses for details</text>
+<line x1="1120" y1="115" x2="1190" y2="115" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1222.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-chart" x="1207" y="100" width="30" height="30" color="#2459c9"/>
+<text x="1222" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Simulate 90 days</text>
+<text x="1222" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">Monte Carlo bands</text>
+<line x1="1254" y1="115" x2="1324" y2="115" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1356.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-shield" x="1341" y="100" width="30" height="30" color="#2459c9"/>
+<text x="1356" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Check numbers</text>
+<text x="1356" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">grounding guard</text>
+<line x1="1388" y1="115" x2="1458" y2="115" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1490.0" cy="115.0" r="24" fill="#d9eaff"/>
+<use href="#i-check" x="1475" y="100" width="30" height="30" color="#2459c9"/>
+<text x="1490" y="150" font-size="13" fill="#1e293b" font-weight="700" text-anchor="middle">Verdict + levers</text>
+<text x="1490" y="167" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">verified options</text>
+<rect x="20" y="196" width="330" height="640" rx="14" fill="#fff" stroke="#86c49a" stroke-width="1.5"/>
+<text x="185.0" y="228" font-size="17" fill="#15803d" font-weight="800" text-anchor="middle">KEY FEATURES</text>
+<circle cx="52.0" cy="270.0" r="21" fill="#dcfce7"/>
+<use href="#i-chat" x="38" y="256" width="28" height="28" color="#15803d"/>
+<text x="84" y="264" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Ask in plain language</text>
+<text x="84" y="283" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Chat runs a tool loop over your own</text>
+<text x="84" y="300" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">data; common questions answer instantly.</text>
+<circle cx="52.0" cy="342.0" r="21" fill="#dcfce7"/>
+<use href="#i-tag" x="38" y="328" width="28" height="28" color="#15803d"/>
+<text x="84" y="336" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Smart categorization</text>
+<text x="84" y="355" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Your merchant memory → rules → fast</text>
+<text x="84" y="372" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">LLM; unsure ones go to a review queue.</text>
+<circle cx="52.0" cy="414.0" r="21" fill="#dcfce7"/>
+<use href="#i-search" x="38" y="400" width="28" height="28" color="#15803d"/>
+<text x="84" y="408" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Insights &amp; anomalies</text>
+<text x="84" y="427" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Spikes, duplicates, price hikes and</text>
+<text x="84" y="444" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">subscriptions, each with its evidence.</text>
+<circle cx="52.0" cy="486.0" r="21" fill="#dcfce7"/>
+<use href="#i-chart" x="38" y="472" width="28" height="28" color="#15803d"/>
+<text x="84" y="480" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">90-day forecast &amp; what-if</text>
+<text x="84" y="499" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Monte Carlo cash bands; “can I afford</text>
+<text x="84" y="516" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">it?” with verified levers.</text>
+<circle cx="52.0" cy="558.0" r="21" fill="#dcfce7"/>
+<use href="#i-bulb" x="38" y="544" width="28" height="28" color="#15803d"/>
+<text x="84" y="552" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Grounded advice</text>
+<text x="84" y="571" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Top 3 picks from computed candidates,</text>
+<text x="84" y="588" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">each with a “Why?” decision trail.</text>
+<circle cx="52.0" cy="630.0" r="21" fill="#dcfce7"/>
+<use href="#i-memory" x="38" y="616" width="28" height="28" color="#15803d"/>
+<text x="84" y="624" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Memory you control</text>
+<text x="84" y="643" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Remembers plans and preferences; see,</text>
+<text x="84" y="660" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">edit, pin or delete every item.</text>
+<circle cx="52.0" cy="702.0" r="21" fill="#dcfce7"/>
+<use href="#i-bell" x="38" y="688" width="28" height="28" color="#15803d"/>
+<text x="84" y="696" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Proactive</text>
+<text x="84" y="715" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Weekly digest and low-balance alerts:</text>
+<text x="84" y="732" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">in-app, email or Telegram.</text>
+<circle cx="52.0" cy="774.0" r="21" fill="#dcfce7"/>
+<use href="#i-shield" x="38" y="760" width="28" height="28" color="#15803d"/>
+<text x="84" y="768" font-size="14.5" fill="#132c63" font-weight="700" text-anchor="start">Guardrails always on</text>
+<text x="84" y="787" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">Number checks, PII masking, chat scope</text>
+<text x="84" y="804" font-size="12.5" fill="#475569" font-weight="400" text-anchor="start">and no investment/tax/legal directives.</text>
+<rect x="365" y="196" width="900" height="450" rx="14" fill="#fff" stroke="#132c63" stroke-width="1.5"/>
+<path d="M365 226V206a10 10 0 0 1 10-10h880a10 10 0 0 1 10 10v20z" fill="#132c63"/>
+<text x="815.0" y="216" font-size="14" fill="#fff" font-weight="700" text-anchor="middle">SYSTEM ARCHITECTURE</text>
+<rect x="379" y="242" width="168" height="312" rx="10" fill="#eef6ff" stroke="#b8d4ff" stroke-width="1"/>
+<text x="463.0" y="264" font-size="12.5" fill="#1d47a1" font-weight="800" text-anchor="middle">USER INTERFACES</text>
+<rect x="387" y="278" width="152" height="82" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>
+<use href="#i-monitor" x="395" y="288" width="24" height="24" color="#2459c9"/>
+<text x="427" y="306" font-size="14" fill="#132c63" font-weight="700" text-anchor="start">Web app</text>
+<text x="395" y="330" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Dashboard, ledger, import,</text>
+<text x="395" y="346" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">insights, forecast, chat</text>
+<rect x="387" y="370" width="152" height="82" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>
+<use href="#i-admin" x="395" y="380" width="24" height="24" color="#2459c9"/>
+<text x="427" y="398" font-size="14" fill="#132c63" font-weight="700" text-anchor="start">Admin pages</text>
+<text x="395" y="422" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Pipeline trace, scheduler</text>
+<text x="395" y="438" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">jobs, eval quality</text>
+<rect x="387" y="462" width="152" height="82" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>
+<use href="#i-mail" x="395" y="472" width="24" height="24" color="#2459c9"/>
+<text x="427" y="490" font-size="14" fill="#132c63" font-weight="700" text-anchor="start">Delivery</text>
+<text x="395" y="514" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">In-app inbox, email,</text>
+<text x="395" y="530" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Telegram bot</text>
+<rect x="565" y="242" width="136" height="312" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1"/>
+<text x="633.0" y="264" font-size="12.5" fill="#6d28d9" font-weight="800" text-anchor="middle">API LAYER</text>
+<circle cx="633.0" cy="302.0" r="30" fill="#ede9fe"/>
+<use href="#i-lock" x="613.0" y="282" width="40" height="40" color="#6d28d9"/>
+<text x="633.0" y="358" font-size="16" fill="#1e293b" font-weight="800" text-anchor="middle">FastAPI</text>
+<text x="633.0" y="376" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">JSON API + htmx pages</text>
+<text x="633.0" y="408" font-size="11.5" fill="#1e293b" font-weight="500" text-anchor="middle">JWT + refresh rotation</text>
+<text x="633.0" y="427" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="middle">CSRF, rate limits,</text>
+<text x="633.0" y="446" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="middle">lockout, CSP</text>
+<text x="633.0" y="465" font-size="11.5" fill="#1e293b" font-weight="500" text-anchor="middle">Row-level security:</text>
+<text x="633.0" y="484" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="middle">SET LOCAL app.user_id</text>
+<text x="633.0" y="503" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="middle">Admin role checks</text>
+<line x1="547" y1="398" x2="565" y2="398" stroke="#64748b" stroke-width="2"/>
+<circle cx="547" cy="398" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<circle cx="565" cy="398" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<rect x="719" y="242" width="356" height="312" rx="10" fill="#ecfeff" stroke="#5eead4" stroke-width="1"/>
+<text x="897.0" y="264" font-size="12.5" fill="#0f766e" font-weight="800" text-anchor="middle">LANGGRAPH AGENTS (Redis checkpoints)</text>
+<circle cx="765.0" cy="299.0" r="22" fill="#fff"/>
+<use href="#i-route" x="750" y="284" width="30" height="30" color="#0f766e"/>
+<circle cx="765" cy="299" r="22" fill="none" stroke="#5eead4"/>
+<text x="765" y="338" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Intent</text>
+<text x="765" y="353" font-size="11" fill="#475569" font-weight="400" text-anchor="middle">router</text>
+<circle cx="853.0" cy="299.0" r="22" fill="#fff"/>
+<use href="#i-tag" x="838" y="284" width="30" height="30" color="#0f766e"/>
+<circle cx="853" cy="299" r="22" fill="none" stroke="#5eead4"/>
+<text x="853" y="338" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Categorizer</text>
+<circle cx="941.0" cy="299.0" r="22" fill="#fff"/>
+<use href="#i-search" x="926" y="284" width="30" height="30" color="#0f766e"/>
+<circle cx="941" cy="299" r="22" fill="none" stroke="#5eead4"/>
+<text x="941" y="338" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Analyzer</text>
+<circle cx="1029.0" cy="299.0" r="22" fill="#fff"/>
+<use href="#i-chart" x="1014" y="284" width="30" height="30" color="#0f766e"/>
+<circle cx="1029" cy="299" r="22" fill="none" stroke="#5eead4"/>
+<text x="1029" y="338" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Forecaster</text>
+<text x="1029" y="353" font-size="11" fill="#475569" font-weight="400" text-anchor="middle">+ simulator</text>
+<circle cx="765.0" cy="383.0" r="22" fill="#fff"/>
+<use href="#i-bulb" x="750" y="368" width="30" height="30" color="#0f766e"/>
+<circle cx="765" cy="383" r="22" fill="none" stroke="#5eead4"/>
+<text x="765" y="422" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Advisor</text>
+<circle cx="853.0" cy="383.0" r="22" fill="#fff"/>
+<use href="#i-target" x="838" y="368" width="30" height="30" color="#0f766e"/>
+<circle cx="853" cy="383" r="22" fill="none" stroke="#5eead4"/>
+<text x="853" y="422" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Goal</text>
+<text x="853" y="437" font-size="11" fill="#475569" font-weight="400" text-anchor="middle">tracker</text>
+<circle cx="941.0" cy="383.0" r="22" fill="#fff"/>
+<use href="#i-chat" x="926" y="368" width="30" height="30" color="#0f766e"/>
+<circle cx="941" cy="383" r="22" fill="none" stroke="#5eead4"/>
+<text x="941" y="422" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Chat agent</text>
+<text x="941" y="437" font-size="11" fill="#475569" font-weight="400" text-anchor="middle">tool loop</text>
+<circle cx="1029.0" cy="383.0" r="22" fill="#fff"/>
+<use href="#i-memory" x="1014" y="368" width="30" height="30" color="#0f766e"/>
+<circle cx="1029" cy="383" r="22" fill="none" stroke="#5eead4"/>
+<text x="1029" y="422" font-size="12.5" fill="#1e293b" font-weight="700" text-anchor="middle">Memory</text>
+<text x="1029" y="437" font-size="11" fill="#475569" font-weight="400" text-anchor="middle">writer</text>
+<use href="#i-nodes" x="733" y="452" width="18" height="18" color="#0f766e"/>
+<text x="755" y="466" font-size="11" fill="#1e293b" font-weight="500" text-anchor="start">Coordinator: ingest → categorize → analyze → forecast →</text>
+<text x="755" y="482" font-size="11" fill="#1e293b" font-weight="500" text-anchor="start">goals → advise → trail → snapshot → deliver</text>
+<rect x="727" y="494" width="340" height="52" rx="8" fill="#fff" stroke="#5eead4" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="897.0" y="508" font-size="11" fill="#0f766e" font-weight="800" text-anchor="middle">GUARDRAILS ON EVERY LLM CALL</text>
+<use href="#i-shield" x="737" y="516" width="12" height="12" color="#0f766e"/>
+<text x="753" y="526" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">Grounding</text>
+<use href="#i-eyeoff" x="841" y="516" width="12" height="12" color="#0f766e"/>
+<text x="857" y="526" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">PII masking</text>
+<use href="#i-ban" x="963" y="516" width="12" height="12" color="#0f766e"/>
+<text x="979" y="526" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">Advice scope</text>
+<use href="#i-braces" x="737" y="531" width="12" height="12" color="#0f766e"/>
+<text x="753" y="541" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">Schema checks</text>
+<use href="#i-box" x="841" y="531" width="12" height="12" color="#0f766e"/>
+<text x="857" y="541" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">&lt;data&gt; isolation</text>
+<use href="#i-layers" x="963" y="531" width="12" height="12" color="#0f766e"/>
+<text x="979" y="541" font-size="10.5" fill="#1e293b" font-weight="600" text-anchor="start">Answer cache</text>
+<line x1="701" y1="398" x2="719" y2="398" stroke="#64748b" stroke-width="2"/>
+<circle cx="701" cy="398" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<circle cx="719" cy="398" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<rect x="1093" y="242" width="158" height="150" rx="10" fill="#fff7ed" stroke="#fdba74" stroke-width="1"/>
+<text x="1172.0" y="264" font-size="12.5" fill="#b45309" font-weight="800" text-anchor="middle">WORKERS</text>
+<use href="#i-gear" x="1105" y="280" width="22" height="22" color="#b45309"/>
+<text x="1135" y="296" font-size="13" fill="#1e293b" font-weight="700" text-anchor="start">Celery worker</text>
+<text x="1135" y="313" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Imports and</text>
+<text x="1135" y="328" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">pipeline runs</text>
+<use href="#i-clock" x="1105" y="338" width="22" height="22" color="#b45309"/>
+<text x="1135" y="354" font-size="13" fill="#1e293b" font-weight="700" text-anchor="start">Celery beat</text>
+<text x="1135" y="371" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Digests, alerts,</text>
+<text x="1135" y="386" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">FX refresh</text>
+<rect x="1093" y="404" width="158" height="150" rx="10" fill="#fefce8" stroke="#facc15" stroke-width="1"/>
+<text x="1172.0" y="426" font-size="12.5" fill="#854d0e" font-weight="800" text-anchor="middle">DATA LAYER</text>
+<use href="#i-db" x="1105" y="442" width="22" height="22" color="#854d0e"/>
+<text x="1135" y="458" font-size="13" fill="#1e293b" font-weight="700" text-anchor="start">PostgreSQL 16</text>
+<text x="1135" y="475" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">pgvector, RLS,</text>
+<text x="1135" y="490" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">the only database</text>
+<use href="#i-bolt" x="1105" y="500" width="22" height="22" color="#854d0e"/>
+<text x="1135" y="516" font-size="13" fill="#1e293b" font-weight="700" text-anchor="start">Redis 8</text>
+<text x="1135" y="533" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Cache, locks,</text>
+<text x="1135" y="548" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">graph checkpoints</text>
+<line x1="1075" y1="317" x2="1093" y2="317" stroke="#64748b" stroke-width="2"/>
+<circle cx="1075" cy="317" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<circle cx="1093" cy="317" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<line x1="1075" y1="479" x2="1093" y2="479" stroke="#64748b" stroke-width="2"/>
+<circle cx="1075" cy="479" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<circle cx="1093" cy="479" r="3.5" fill="#fff" stroke="#64748b" stroke-width="2"/>
+<rect x="379" y="566" width="872" height="66" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+<text x="395" y="588" font-size="11" fill="#475569" font-weight="800" text-anchor="start">EXTERNAL</text>
+<text x="395" y="604" font-size="11" fill="#475569" font-weight="800" text-anchor="start">SERVICES</text>
+<circle cx="499.0" cy="598.0" r="20" fill="#fff"/>
+<use href="#i-plug" x="485" y="584" width="28" height="28" color="#2459c9"/>
+<text x="523" y="596" font-size="14" fill="#1e293b" font-weight="700" text-anchor="start">Mesh API</text>
+<text x="523" y="614" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">every LLM + embedding call</text>
+<circle cx="751.0" cy="598.0" r="20" fill="#fff"/>
+<use href="#i-globe" x="737" y="584" width="28" height="28" color="#0f766e"/>
+<text x="775" y="596" font-size="14" fill="#1e293b" font-weight="700" text-anchor="start">FX MCP server</text>
+<text x="775" y="614" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">Frankfurter / ECB, 4-step fallback</text>
+<circle cx="1003.0" cy="598.0" r="20" fill="#fff"/>
+<use href="#i-eye" x="989" y="584" width="28" height="28" color="#be123c"/>
+<text x="1027" y="596" font-size="14" fill="#1e293b" font-weight="700" text-anchor="start">Langfuse v3</text>
+<text x="1027" y="614" font-size="11.5" fill="#475569" font-weight="400" text-anchor="start">traces, prompts, scores, cost</text>
+<line x1="839" y1="554" x2="839" y2="566" stroke="#64748b" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<line x1="979" y1="554" x2="979" y2="566" stroke="#64748b" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+<rect x="1280" y="196" width="300" height="640" rx="14" fill="#fff" stroke="#132c63" stroke-width="1.5"/>
+<path d="M1280 226V206a10 10 0 0 1 10-10h280a10 10 0 0 1 10 10v20z" fill="#132c63"/>
+<text x="1430.0" y="216" font-size="14" fill="#fff" font-weight="700" text-anchor="middle">TECH STACK</text>
+<use href="#i-code" x="1296" y="246" width="26" height="26" color="#2459c9"/>
+<text x="1334" y="260" font-size="14" fill="#2459c9" font-weight="700" text-anchor="start">Backend</text>
+<text x="1334" y="278" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Python 3.12, FastAPI, SQLAlchemy 2</text>
+<text x="1334" y="294" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Alembic, Pydantic v2, uv</text>
+<line x1="1296" y1="308" x2="1564" y2="308" stroke="#e2e8f0"/>
+<use href="#i-nodes" x="1296" y="320" width="26" height="26" color="#0f766e"/>
+<text x="1334" y="334" font-size="14" fill="#0f766e" font-weight="700" text-anchor="start">Agentic AI</text>
+<text x="1334" y="352" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">LangGraph (Redis checkpointer),</text>
+<text x="1334" y="368" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">MCP (FastMCP FX server)</text>
+<line x1="1296" y1="382" x2="1564" y2="382" stroke="#e2e8f0"/>
+<use href="#i-plug" x="1296" y="394" width="26" height="26" color="#6d28d9"/>
+<text x="1334" y="408" font-size="14" fill="#6d28d9" font-weight="700" text-anchor="start">LLM via Mesh</text>
+<text x="1334" y="426" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">fast: gpt-4o-mini, smart: gpt-4o,</text>
+<text x="1334" y="442" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">embeddings: text-embedding-3-small</text>
+<line x1="1296" y1="456" x2="1564" y2="456" stroke="#e2e8f0"/>
+<use href="#i-monitor" x="1296" y="468" width="26" height="26" color="#2459c9"/>
+<text x="1334" y="482" font-size="14" fill="#2459c9" font-weight="700" text-anchor="start">Frontend</text>
+<text x="1334" y="500" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Jinja + htmx + Alpine.js,</text>
+<text x="1334" y="516" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Tailwind, Chart.js</text>
+<line x1="1296" y1="530" x2="1564" y2="530" stroke="#e2e8f0"/>
+<use href="#i-db" x="1296" y="542" width="26" height="26" color="#b45309"/>
+<text x="1334" y="556" font-size="14" fill="#b45309" font-weight="700" text-anchor="start">Data &amp; jobs</text>
+<text x="1334" y="574" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">PostgreSQL 16 (pgvector, RLS),</text>
+<text x="1334" y="590" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Redis 8, Celery + beat</text>
+<line x1="1296" y1="604" x2="1564" y2="604" stroke="#e2e8f0"/>
+<use href="#i-eyeoff" x="1296" y="616" width="26" height="26" color="#15803d"/>
+<text x="1334" y="630" font-size="14" fill="#15803d" font-weight="700" text-anchor="start">Privacy</text>
+<text x="1334" y="648" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Presidio PII masking, argon2id,</text>
+<text x="1334" y="664" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">JWT, CSRF, CSP</text>
+<line x1="1296" y1="678" x2="1564" y2="678" stroke="#e2e8f0"/>
+<use href="#i-eye" x="1296" y="690" width="26" height="26" color="#be123c"/>
+<text x="1334" y="704" font-size="14" fill="#be123c" font-weight="700" text-anchor="start">Observability</text>
+<text x="1334" y="722" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">Langfuse v3 (self-hosted):</text>
+<text x="1334" y="738" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">traces, scores, cost</text>
+<line x1="1296" y1="752" x2="1564" y2="752" stroke="#e2e8f0"/>
+<use href="#i-flask" x="1296" y="764" width="26" height="26" color="#15803d"/>
+<text x="1334" y="778" font-size="14" fill="#15803d" font-weight="700" text-anchor="start">Testing &amp; evals</text>
+<text x="1334" y="796" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">490+ pytest tests on real Postgres</text>
+<text x="1334" y="812" font-size="11.5" fill="#1e293b" font-weight="400" text-anchor="start">+ Redis; 62 gated eval metrics</text>
+<rect x="365" y="660" width="900" height="176" rx="14" fill="#fff" stroke="#132c63" stroke-width="1.5"/>
+<text x="815.0" y="686" font-size="15" fill="#132c63" font-weight="800" text-anchor="middle">HOW IT WORKS (DATA TO DECISION)</text>
+<circle cx="429.2857142857143" cy="724" r="22" fill="#2459c9" fill-opacity="0.12"/>
+<use href="#i-upload" x="416.2857142857143" y="711" width="26" height="26" color="#2459c9"/>
+<text x="429.2857142857143" y="764" font-size="13" fill="#2459c9" font-weight="800" text-anchor="middle">1. Ingest</text>
+<text x="429.2857142857143" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">CSV, manual,</text>
+<text x="429.2857142857143" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">recurring, sample</text>
+<line x1="457.2857142857143" y1="724" x2="529.8571428571429" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="557.8571428571429" cy="724" r="22" fill="#6d28d9" fill-opacity="0.12"/>
+<use href="#i-tag" x="544.8571428571429" y="711" width="26" height="26" color="#6d28d9"/>
+<text x="557.8571428571429" y="764" font-size="13" fill="#6d28d9" font-weight="800" text-anchor="middle">2. Categorize</text>
+<text x="557.8571428571429" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">memory, rules,</text>
+<text x="557.8571428571429" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">then fast LLM</text>
+<line x1="585.8571428571429" y1="724" x2="658.4285714285714" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="686.4285714285714" cy="724" r="22" fill="#0f766e" fill-opacity="0.12"/>
+<use href="#i-search" x="673.4285714285714" y="711" width="26" height="26" color="#0f766e"/>
+<text x="686.4285714285714" y="764" font-size="13" fill="#0f766e" font-weight="800" text-anchor="middle">3. Analyze</text>
+<text x="686.4285714285714" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">anomalies,</text>
+<text x="686.4285714285714" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">subscriptions</text>
+<line x1="714.4285714285714" y1="724" x2="787.0" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="815.0000000000001" cy="724" r="22" fill="#b45309" fill-opacity="0.12"/>
+<use href="#i-chart" x="802.0000000000001" y="711" width="26" height="26" color="#b45309"/>
+<text x="815.0000000000001" y="764" font-size="13" fill="#b45309" font-weight="800" text-anchor="middle">4. Forecast</text>
+<text x="815.0000000000001" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">90-day bands,</text>
+<text x="815.0000000000001" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">what-if levers</text>
+<line x1="843.0000000000001" y1="724" x2="915.5714285714287" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="943.5714285714287" cy="724" r="22" fill="#0369a1" fill-opacity="0.12"/>
+<use href="#i-bulb" x="930.5714285714287" y="711" width="26" height="26" color="#0369a1"/>
+<text x="943.5714285714287" y="764" font-size="13" fill="#0369a1" font-weight="800" text-anchor="middle">5. Advise</text>
+<text x="943.5714285714287" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">LLM picks from</text>
+<text x="943.5714285714287" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">computed options</text>
+<line x1="971.5714285714287" y1="724" x2="1044.1428571428573" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1072.142857142857" cy="724" r="22" fill="#15803d" fill-opacity="0.12"/>
+<use href="#i-shield" x="1059.142857142857" y="711" width="26" height="26" color="#15803d"/>
+<text x="1072.142857142857" y="764" font-size="13" fill="#15803d" font-weight="800" text-anchor="middle">6. Verify</text>
+<text x="1072.142857142857" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">every number</text>
+<text x="1072.142857142857" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">vs. computed facts</text>
+<line x1="1100.142857142857" y1="724" x2="1172.7142857142858" y2="724" stroke="#64748b" stroke-width="1.6" marker-end="url(#ah)"/>
+<circle cx="1200.7142857142858" cy="724" r="22" fill="#be123c" fill-opacity="0.12"/>
+<use href="#i-bell" x="1187.7142857142858" y="711" width="26" height="26" color="#be123c"/>
+<text x="1200.7142857142858" y="764" font-size="13" fill="#be123c" font-weight="800" text-anchor="middle">7. Deliver</text>
+<text x="1200.7142857142858" y="780" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">dashboard, chat,</text>
+<text x="1200.7142857142858" y="795" font-size="11.5" fill="#475569" font-weight="400" text-anchor="middle">digest, alerts</text>
+<rect x="379" y="804" width="872" height="24" rx="8" fill="#fefce8" stroke="#facc15" stroke-width="1"/>
+<use href="#i-shield" x="389" y="808" width="16" height="16" color="#854d0e"/>
+<text x="411" y="821" font-size="12" fill="#713f12" font-weight="600" text-anchor="start">Numbers that can’t be verified are never shown: the guard retries once, then falls back to a deterministic template.</text>
+<rect x="20" y="852" width="1560" height="128" rx="14" fill="#132c63" stroke="none" stroke-width="1"/>
+<use href="#i-shield" x="44.0" y="886" width="40" height="40" color="#fff"/>
+<text x="100.0" y="902" font-size="14.5" fill="#fff" font-weight="800" text-anchor="start">NUMBERS FROM CODE</text>
+<text x="100.0" y="924" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">LLMs classify, parse, choose and phrase.</text>
+<text x="100.0" y="942" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">Every figure passes the grounding guard.</text>
+<use href="#i-lock" x="434.0" y="886" width="40" height="40" color="#fff"/>
+<text x="490.0" y="902" font-size="14.5" fill="#fff" font-weight="800" text-anchor="start">PRIVATE BY DESIGN</text>
+<text x="490.0" y="924" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">Per-user RLS; PII masked before Mesh</text>
+<text x="490.0" y="942" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">and Langfuse; secrets only in .env.</text>
+<line x1="410.0" y1="878" x2="410.0" y2="954" stroke="#3b5596"/>
+<use href="#i-eye" x="824.0" y="886" width="40" height="40" color="#fff"/>
+<text x="880.0" y="902" font-size="14.5" fill="#fff" font-weight="800" text-anchor="start">AUDITABLE</text>
+<text x="880.0" y="924" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">“Why?” trail for every recommendation;</text>
+<text x="880.0" y="942" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">every agent step traced.</text>
+<line x1="800.0" y1="878" x2="800.0" y2="954" stroke="#3b5596"/>
+<use href="#i-users" x="1214.0" y="886" width="40" height="40" color="#fff"/>
+<text x="1270.0" y="902" font-size="14.5" fill="#fff" font-weight="800" text-anchor="start">MULTI-USER, MULTI-CURRENCY</text>
+<text x="1270.0" y="924" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">INR and USD with stored FX rates;</text>
+<text x="1270.0" y="942" font-size="12.5" fill="#c7d7f5" font-weight="400" text-anchor="start">degraded mode without an LLM.</text>
+<line x1="1190.0" y1="878" x2="1190.0" y2="954" stroke="#3b5596"/>
+</svg>

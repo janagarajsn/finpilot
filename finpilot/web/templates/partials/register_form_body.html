@@ -1,0 +1,10 @@
+{% from "partials/field.html" import input, error, submit, currency_select %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{{ error(error_msg) }}
+{{ input("name", "Name", "text", form.name or "", "name") }}
+{{ input("email", "Email", "email", form.email or "", "email") }}
+{{ input("password", "Password", "password", "", "new-password", attrs='minlength="10"', help="At least 10 characters. Common passwords are rejected.") }}
+{{ currency_select("reporting_currency", currencies, form.reporting_currency or "INR") }}
+{{ input("timezone", "Timezone", "text", form.timezone or "", None, attrs='data-detect-tz list="tz-list"', help="Detected from your browser; digests are scheduled in this timezone.") }}
+<datalist id="tz-list">{% for tz in timezones %}<option value="{{ tz }}">{% endfor %}</datalist>
+{{ submit("Create account") }}

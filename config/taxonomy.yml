@@ -1,0 +1,219 @@
+# System category taxonomy: the single source for the DB seed, the Categories page,
+# the CSV/XLSX template and the categorizer prompt ("what the AI is shown").
+# flow_type: income | expense | transfer | savings
+# nature (drives forecasting): fixed | essential_variable | discretionary | n/a
+# `slug` is a stable id; never rename it (names/descriptions may change freely).
+categories:
+  # ------------------------------------------------------------------ income
+  - slug: salary
+    name: Salary
+    flow_type: income
+    nature: n/a
+    description: Regular pay from an employer, including bonuses paid through payroll.
+    examples: ["SALARY CREDIT ACME LTD", "NEFT-PAYROLL-INFOSYS", "ACH DEPOSIT PAYROLL GUSTO"]
+    color: "#16a34a"
+    icon: "💼"
+  - slug: freelance
+    name: Freelance
+    flow_type: income
+    nature: n/a
+    description: Income from clients, contracts, gigs or self-employment.
+    examples: ["UPWORK ESCROW", "IMPS-CLIENT INVOICE 1042", "STRIPE TRANSFER"]
+    color: "#22c55e"
+    icon: "🧑‍💻"
+  - slug: interest_dividends
+    name: Interest/Dividends
+    flow_type: income
+    nature: n/a
+    description: Bank interest, fixed-deposit interest, dividends and similar investment income.
+    examples: ["INT.PD:SAVINGS", "DIVIDEND RELIANCE", "INTEREST PAYMENT"]
+    color: "#4ade80"
+    icon: "📈"
+  - slug: refunds
+    name: Refunds
+    flow_type: income
+    nature: n/a
+    description: Money returned for a purchase, cashback or reversal of a charge.
+    examples: ["REFUND AMAZON", "REV-UPI SWIGGY", "CASHBACK"]
+    color: "#86efac"
+    icon: "↩️"
+  - slug: other_income
+    name: Other Income
+    flow_type: income
+    nature: n/a
+    description: Any other money coming in (gifts, reimbursements, sale of items).
+    examples: ["UPI/RAHUL/GIFT", "REIMBURSEMENT", "ZELLE FROM MOM"]
+    color: "#bbf7d0"
+    icon: "➕"
+  # ------------------------------------------------------------------ fixed expenses
+  - slug: rent_mortgage
+    name: Rent/Mortgage
+    flow_type: expense
+    nature: fixed
+    description: Rent for your home or mortgage payments, including maintenance charges paid to a society/HOA.
+    examples: ["NEFT-RENT-LANDLORD", "RENT ACH ZILLOW", "HOME LOAN EMI HDFC"]
+    color: "#dc2626"
+    icon: "🏠"
+  - slug: loan_emi
+    name: Loan/EMI
+    flow_type: expense
+    nature: fixed
+    description: Instalments on personal, car, education or consumer-durable loans (EMI), and credit-card EMIs.
+    examples: ["EMI BAJAJ FINSERV", "ACH CAR LOAN TOYOTA FIN", "NACH-LOAN-ICICI"]
+    color: "#b91c1c"
+    icon: "🏦"
+  - slug: utilities
+    name: Utilities
+    flow_type: expense
+    nature: essential_variable
+    description: Electricity, water, gas, internet, mobile phone and DTH/cable bills.
+    examples: ["BESCOM BILL", "JIO PREPAID", "AIRTEL POSTPAID", "COMCAST", "PG&E"]
+    color: "#f97316"
+    icon: "💡"
+  - slug: insurance
+    name: Insurance
+    flow_type: expense
+    nature: fixed
+    description: Health, life, vehicle or home insurance premiums.
+    examples: ["LIC PREMIUM", "STAR HEALTH", "GEICO AUTO"]
+    color: "#ea580c"
+    icon: "🛡️"
+  - slug: subscriptions
+    name: Subscriptions
+    flow_type: expense
+    nature: fixed
+    description: Recurring digital services and memberships (streaming, software, cloud, gym, news).
+    examples: ["NETFLIX.COM", "SPOTIFY", "OPENAI *CHATGPT", "AWS", "YOUTUBEPREMIUM", "CULT.FIT"]
+    color: "#a855f7"
+    icon: "🔁"
+  - slug: education
+    name: Education
+    flow_type: expense
+    nature: fixed
+    description: School or college fees, tuition, courses, books for study.
+    examples: ["BYJUS", "COURSERA", "SCHOOL FEES"]
+    color: "#8b5cf6"
+    icon: "🎓"
+  # ------------------------------------------------------------------ essential variable
+  - slug: groceries
+    name: Groceries
+    flow_type: expense
+    nature: essential_variable
+    description: Supermarkets and grocery delivery for food and household supplies.
+    examples: ["BIGBASKET", "BLINKIT", "DMART", "ZEPTO", "WHOLE FOODS", "TRADER JOE'S", "KROGER"]
+    color: "#0ea5e9"
+    icon: "🛒"
+  - slug: transport
+    name: Transport
+    flow_type: expense
+    nature: essential_variable
+    description: Taxis, ride-hailing, metro, bus, local trains, parking and tolls.
+    examples: ["UBER TRIP", "OLA CABS", "NAMMA METRO", "FASTAG", "LYFT"]
+    color: "#06b6d4"
+    icon: "🚕"
+  - slug: fuel
+    name: Fuel
+    flow_type: expense
+    nature: essential_variable
+    description: Petrol, diesel, CNG or EV charging.
+    examples: ["INDIAN OIL", "HPCL", "SHELL OIL", "CHEVRON"]
+    color: "#0891b2"
+    icon: "⛽"
+  - slug: health
+    name: Health
+    flow_type: expense
+    nature: essential_variable
+    description: Doctors, hospitals, pharmacies, diagnostics and dental care.
+    examples: ["APOLLO PHARMACY", "PHARMEASY", "CVS PHARMACY", "PRACTO"]
+    color: "#14b8a6"
+    icon: "⚕️"
+  - slug: fees_interest
+    name: Fees/Interest
+    flow_type: expense
+    nature: essential_variable
+    description: Bank charges, late fees, credit-card interest, GST on fees, ATM fees.
+    examples: ["SMS CHARGES", "LATE PAYMENT FEE", "FINANCE CHARGE", "ANNUAL FEE"]
+    color: "#64748b"
+    icon: "🧾"
+  # ------------------------------------------------------------------ discretionary
+  - slug: dining_out
+    name: Dining Out
+    flow_type: expense
+    nature: discretionary
+    description: Restaurants, cafes, bars and coffee shops (eating out, not delivery).
+    examples: ["STARBUCKS", "CHAAYOS", "SQ *BLUE BOTTLE", "TST* SHAKE SHACK", "BARBEQUE NATION"]
+    color: "#f59e0b"
+    icon: "🍽️"
+  - slug: food_delivery
+    name: Food Delivery
+    flow_type: expense
+    nature: discretionary
+    description: Ready-to-eat food ordered for delivery through apps.
+    examples: ["SWIGGY", "ZOMATO", "DOORDASH", "UBER EATS", "GRUBHUB"]
+    color: "#fbbf24"
+    icon: "🛵"
+  - slug: entertainment
+    name: Entertainment
+    flow_type: expense
+    nature: discretionary
+    description: Movies, events, concerts, games and hobbies (one-off, not subscriptions).
+    examples: ["BOOKMYSHOW", "PVR CINEMAS", "STEAM PURCHASE", "TICKETMASTER"]
+    color: "#ec4899"
+    icon: "🎬"
+  - slug: shopping
+    name: Shopping
+    flow_type: expense
+    nature: discretionary
+    description: Clothes, electronics, home goods and general online/offline retail.
+    examples: ["AMAZON", "AMZN Mktp US", "FLIPKART", "MYNTRA", "TARGET", "BEST BUY"]
+    color: "#f43f5e"
+    icon: "🛍️"
+  - slug: travel
+    name: Travel
+    flow_type: expense
+    nature: discretionary
+    description: Flights, trains, hotels and holiday bookings.
+    examples: ["IRCTC", "INDIGO", "MAKEMYTRIP", "AIRBNB", "DELTA AIR", "MARRIOTT"]
+    color: "#3b82f6"
+    icon: "✈️"
+  - slug: impulse_misc
+    name: Impulse/Misc
+    flow_type: expense
+    nature: discretionary
+    description: Small unplanned purchases that fit nowhere else (snacks, convenience stores, small UPI payments to shops).
+    examples: ["UPI/PAYTM/KIRANA", "7-ELEVEN", "VENDING MACHINE"]
+    color: "#fb7185"
+    icon: "🎲"
+  - slug: other
+    name: Other
+    flow_type: expense
+    nature: discretionary
+    description: Expenses that clearly don't belong to any other category (gifts, donations, personal care).
+    examples: ["DONATION", "GIFT SHOP", "SALON"]
+    color: "#94a3b8"
+    icon: "📦"
+  # ------------------------------------------------------------------ transfers / savings / cash
+  - slug: transfers
+    name: Transfers
+    flow_type: transfer
+    nature: n/a
+    description: Moving money between your own accounts or paying your own credit-card bill (not spending).
+    examples: ["CC BILL PAYMENT", "SELF TRANSFER", "PAYMENT THANK YOU", "TRANSFER TO SAVINGS"]
+    color: "#6b7280"
+    icon: "🔄"
+  - slug: savings_investments
+    name: Savings/Investments
+    flow_type: savings
+    nature: n/a
+    description: SIPs, mutual funds, stocks, PPF/NPS, recurring deposits and brokerage transfers.
+    examples: ["SIP ZERODHA", "GROWW MF", "NPS CONTRIBUTION", "VANGUARD BUY", "ROBINHOOD"]
+    color: "#10b981"
+    icon: "🌱"
+  - slug: cash_atm
+    name: Cash/ATM
+    flow_type: expense
+    nature: discretionary
+    description: Cash withdrawals from ATMs or bank counters (spending is untracked once withdrawn).
+    examples: ["ATM-WDL", "NWD ATM", "ATM WITHDRAWAL"]
+    color: "#78716c"
+    icon: "🏧"

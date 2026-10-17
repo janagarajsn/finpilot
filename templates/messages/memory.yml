@@ -1,0 +1,6 @@
+# Deterministic memory texts (memory writer) — stored, recalled and shown on the Memory page.
+decision:
+  accepted: >-
+    Accepted the advice "{{ title }}".
+  dismissed: >-
+    Dismissed the advice "{{ title }}"{% if reason %} because: {{ reason }}{% endif %}.

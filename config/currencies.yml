@@ -1,0 +1,26 @@
+# Supported currencies. Adding one = a new entry here + confirming the FX source serves it.
+# Thresholds are per currency because "small" and "large" depend on the unit.
+base: INR
+currencies:
+  INR:
+    name: Indian Rupee
+    symbol: "₹"
+    minor_units: 2
+    locale: en_IN            # lakh/crore grouping: ₹1,25,000.00
+    aliases: ["Rs", "Rs.", "INR", "₹"]
+    thresholds:
+      small_purchase_ceiling: 300      # "latte factor" ceiling
+      min_anomaly_amount: 2000         # ignore anomalies below this
+      default_cash_buffer: 10000
+      grounding_abs_tolerance: 1       # ±1 currency unit in the grounding guard
+  USD:
+    name: US Dollar
+    symbol: "$"
+    minor_units: 2
+    locale: en_US
+    aliases: ["$", "USD", "US$"]
+    thresholds:
+      small_purchase_ceiling: 8
+      min_anomaly_amount: 50
+      default_cash_buffer: 500
+      grounding_abs_tolerance: 1

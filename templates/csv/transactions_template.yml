@@ -1,0 +1,49 @@
+# Canonical import template (drives the CSV/XLSX downloads, GET /import/schema and the wizard).
+columns:
+  - name: date
+    required: true
+    format: YYYY-MM-DD
+    description: Transaction date, for example 2026-03-12.
+  - name: description
+    required: true
+    description: What it was, in your own words (for example "Swiggy order"), or the text your bank shows (max 500 characters).
+  - name: amount
+    required: true
+    description: Positive number, without a currency symbol. Use the type column for direction.
+  - name: type
+    required: true
+    allowed: [expense, income]
+    description: "expense = money out, income = money in."
+  - name: category
+    required: false
+    description: Optional. Must match one of your categories exactly (see the Categories sheet). Leave blank and FinPilot will categorize it.
+  - name: account
+    required: false
+    description: Optional account name (for example Main). Unknown names fall back to no account.
+  - name: notes
+    required: false
+    description: Optional free text.
+  - name: currency
+    required: false
+    description: Optional. Any supported currency code. Defaults to the account currency, else your reporting currency.
+  - name: fx_rate
+    required: false
+    description: "Optional. Exact rate to INR (INR per 1 unit of the row's currency). Overrides the daily reference rate, so use it to match your bank's card rate."
+examples:
+  INR:
+    - [2026-03-01, "Salary from Acme Technologies", "85000", income, Salary, Main, "", INR, ""]
+    - [2026-03-02, "House rent", "25000", expense, Rent/Mortgage, Main, "March rent", INR, ""]
+    - [2026-03-05, "Swiggy order", "450", expense, "", Main, "", INR, ""]
+    - [2026-03-07, "ChatGPT Plus", "20", expense, Subscriptions, Main, "Billed in USD", USD, ""]
+  USD:
+    - [2026-03-01, "Paycheck from Northwind", "5200", income, Salary, Main, "", USD, ""]
+    - [2026-03-02, "Apartment rent", "1850", expense, Rent/Mortgage, Main, "March rent", USD, ""]
+    - [2026-03-05, "Starbucks", "6.45", expense, "", Main, "", USD, ""]
+    - [2026-03-07, "Money sent to parents", "20000", expense, Other, Main, "Sent home", INR, ""]
+instructions:
+  - Fill one row per transaction on the Transactions sheet (or in the CSV). Keep the header row.
+  - Dates must be YYYY-MM-DD. Amounts are positive; the type column says whether money went out or came in.
+  - Category is optional. If it's blank, FinPilot suggests one; if it's filled, it must match a name on the Categories sheet.
+  - Currency is optional. Foreign-currency rows are converted to INR at the daily reference rate for that date (or your fx_rate).
+  - Upload the file on the Import page. You'll see a preview with errors, duplicates and converted amounts before anything is saved, and you can undo the whole import afterwards.
+  - Limits are 5 MB and 50,000 rows per file.

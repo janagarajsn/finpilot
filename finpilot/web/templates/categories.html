@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block head_scripts %}<script src="/static/js/categories.js"></script>{% endblock %}
+{% block content %}
+<div x-data="categoriesPage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-2">
+  <div>
+    <h1 class="text-2xl font-semibold">Categories</h1>
+    <p class="text-sm text-muted max-w-2xl">The categories the AI uses. You can hide built-in ones; your own are added with their keywords. Hover a row for its description and examples.</p>
+  </div>
+  <button type="button" @click="edit(null)" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm">+ New category</button>
+</div>
+<div x-show="error" x-text="error" role="alert" class="my-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+<div x-show="notice" x-text="notice" role="status" class="my-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-pos px-3 py-2 text-sm"></div>
+
+{# ---- create / edit form ---- #}
+<form x-show="editing" x-cloak @submit.prevent="save" style="display:none"
+      class="my-4 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 grid md:grid-cols-2 gap-4">
+  <h2 class="md:col-span-2 font-semibold" x-text="editing === 'new' ? 'New category' : 'Edit category'"></h2>
+  <label class="text-sm">Name<input x-model="form.name" required maxlength="60" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+  <div class="grid grid-cols-3 gap-2">
+    <label class="text-sm col-span-1">Icon<input x-model="form.icon" maxlength="4" placeholder="🐾" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label class="text-sm col-span-2">Colour<input x-model="form.color" type="color" class="mt-1 h-10 w-full rounded-lg border border-slate-300 dark:border-slate-700"></label>
+  </div>
+  <label class="text-sm">Money flow
+    <select x-model="form.flow_type" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      <option value="expense">Expense</option><option value="income">Income</option><option value="savings">Savings / investment</option><option value="transfer">Transfer between own accounts</option>
+    </select></label>
+  <label class="text-sm" x-show="form.flow_type === 'expense'">Nature (drives forecasting)
+    <select x-model="form.nature" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      <option value="fixed">Fixed: same amount every period (rent, EMI)</option>
+      <option value="essential_variable">Essential, varies (groceries, fuel)</option>
+      <option value="discretionary">Discretionary (dining, shopping)</option>
+    </select></label>
+  <label class="text-sm md:col-span-2">Description (shown to the AI)<input x-model="form.description" maxlength="500" placeholder="e.g. Pet food, vet visits and grooming" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+  <label class="text-sm md:col-span-2">Keywords (comma separated; matching transactions are categorized instantly with 90% confidence)
+    <input x-model="form.keywords" placeholder="SUPERTAILS, HEADS UP FOR TAILS, vet" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+  <div class="md:col-span-2 flex justify-end gap-2">
+    <button type="button" @click="editing = null" class="rounded-lg px-4 py-2 text-sm ring-1 ring-slate-300 dark:ring-slate-700">Cancel</button>
+    <button class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm">Save</button>
+  </div>
+</form>
+
+{# ---- recategorize preview ---- #}
+<section x-show="recat" x-cloak style="display:none" class="my-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200 dark:ring-amber-800 p-5" aria-live="polite">
+  <template x-if="recat">
+    <div>
+      <h2 class="font-semibold">Re-categorize existing transactions?</h2>
+      <p class="text-sm text-soft mb-3"><span x-text="recat.rows.length"></span> transactions you haven't categorized yourself match the keywords of <strong x-text="recat.category.name"></strong>. Nothing changes until you apply.</p>
+      <div class="max-h-72 overflow-y-auto rounded-lg bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800" tabindex="0">
+        <table class="w-full text-sm"><thead class="eyebrow text-left"><tr><th class="p-2"></th><th class="p-2">Date</th><th class="p-2">Description</th><th class="p-2">Now</th><th class="p-2">→ New</th></tr></thead>
+          <tbody><template x-for="r in recat.rows" :key="r.transaction_id"><tr class="border-t border-slate-100 dark:border-slate-800">
+            <td class="p-2"><input type="checkbox" :value="r.transaction_id" x-model="recatSelected" :aria-label="'Include ' + r.description"></td>
+            <td class="p-2 whitespace-nowrap" x-text="r.date"></td><td class="p-2" x-text="r.description"></td>
+            <td class="p-2 text-muted" x-text="r.current_category || 'Uncategorized'"></td><td class="p-2 font-medium" x-text="recat.category.name"></td></tr></template></tbody></table>
+      </div>
+      <div class="flex justify-end gap-2 mt-3">
+        <button type="button" @click="recat = null; window.location.reload()" class="rounded-lg px-4 py-2 text-sm ring-1 ring-slate-300 dark:ring-slate-700">Skip</button>
+        <button type="button" @click="applyRecat" class="rounded-lg bg-brand-600 text-white px-4 py-2 text-sm">Apply to <span x-text="recatSelected.length"></span></button>
+      </div>
+    </div>
+  </template>
+</section>
+
+{% macro cat_group(group, label) %}
+<section class="min-w-0" aria-labelledby="grp-{{ group }}">
+  <h2 id="grp-{{ group }}" class="eyebrow mb-1.5 flex items-baseline justify-between"><span>{{ label }}</span><span>Transactions</span></h2>
+  <div class="rounded-xl ring-1 ring-slate-200 dark:ring-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+    {% for c in categories if c.flow_type == group %}
+    {% set tip = c.description ~ ((' · e.g. ' ~ c.examples[:4]|join(', ')) if c.examples else '') %}
+    <div class="flex items-center gap-2.5 px-3 py-1.5 {{ 'opacity-50' if c.hidden }}" x-data='{ c: {{ c|tojson }} }'>
+      <span class="grid h-7 w-7 flex-none place-items-center rounded-md text-base" style="background: {{ c.color }}22" aria-hidden="true">{{ c.icon or '•' }}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 text-sm font-medium"><span class="truncate">{{ c.name }}</span>
+          {% if not c.is_system %}<span class="badge bg-brand-50 dark:bg-brand-500/15 text-accent">yours</span>{% endif %}
+          {% if c.nature not in ('n/a', None) %}<span class="hidden sm:inline badge bg-slate-100 dark:bg-slate-800 text-muted">{{ c.nature|replace('essential_variable', 'essential')|replace('_', ' ') }}</span>{% endif %}
+          {% if c.hidden %}<span class="badge bg-slate-200 dark:bg-slate-700 text-soft">hidden</span>{% endif %}
+        </div>
+        <div class="truncate text-xs text-muted" title="{{ tip }}">{% if c.keywords %}Keywords: {{ c.keywords|join(', ') }}{% else %}{{ c.description }}{% endif %}</div>
+      </div>
+      <span class="w-10 flex-none text-right text-xs tabular-nums text-muted">{{ c.txn_count }}</span>
+      <div class="flex w-16 flex-none justify-end text-xs">
+        {% if c.is_system %}
+        <button type="button" @click="toggleHidden(c); $el.closest('[x-data]').classList.toggle('opacity-50')" class="text-accent hover:underline" x-text="c.hidden ? 'Unhide' : 'Hide'" :aria-label="(c.hidden ? 'Unhide ' : 'Hide ') + c.name"></button>
+        {% else %}
+        <details class="relative" x-data @click.outside="$el.removeAttribute('open')">
+          <summary class="list-none cursor-pointer text-accent hover:underline [&::-webkit-details-marker]:hidden" aria-label="Actions for {{ c.name }}">Manage</summary>
+          <div class="absolute right-0 z-20 mt-1 w-40 rounded-lg bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-slate-200 dark:ring-slate-700">
+            {% set mi = "block w-full rounded-md px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-slate-800" %}
+            <button type="button" @click="edit(c)" class="{{ mi }}">Edit</button>
+            <button type="button" @click="preview(c)" class="{{ mi }} disabled:opacity-50" {% if not c.keywords %}disabled title="Add keywords first"{% endif %}>Re-categorize</button>
+            <button type="button" @click="merge(c)" class="{{ mi }}">Merge into…</button>
+            <button type="button" @click="archive(c)" class="{{ mi }}">Archive</button>
+            <button type="button" @click="remove(c)" class="{{ mi }} text-neg">Delete</button>
+          </div>
+        </details>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endmacro %}
+<div class="mt-5 grid items-start gap-5 lg:grid-cols-2">
+  {{ cat_group("expense", "Expenses") }}
+  <div class="grid min-w-0 gap-5">
+    {{ cat_group("income", "Income") }}
+    {{ cat_group("savings", "Savings & investments") }}
+    {{ cat_group("transfer", "Transfers") }}
+  </div>
+</div>
+<script type="application/json" id="fp-categories">{{ categories|tojson }}</script>
+</div>
+{% endblock %}

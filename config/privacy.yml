@@ -1,0 +1,38 @@
+# PII masking (finpilot/privacy/pii.py, Presidio analyzer with a tokenizer-only spaCy pipeline).
+# Applied to every prompt and embedding input sent to Mesh, to Langfuse trace payloads, and as an
+# output check (an answer that contains one of these is retried, then replaced by the fallback).
+#
+# Only identifiers are masked. Names (people, merchants) are NOT: transaction descriptions need
+# them for categorization ("Swiggy", "Jana Salary"), and named-entity models mislabel merchants.
+# Amounts, dates and transaction reference numbers are never masked (the grounding guard and the
+# categorizer need them).
+score_threshold: 0.4
+phone_regions: [IN, US]
+
+# entity → placeholder (also the list of entities that are detected)
+placeholders:
+  CREDIT_CARD: "<card number>"          # Presidio, Luhn-checked
+  EMAIL_ADDRESS: "<email>"
+  PHONE_NUMBER: "<phone>"               # Presidio + libphonenumber (regions above)
+  IBAN_CODE: "<iban>"                   # Presidio, checksum-checked
+  IN_PAN: "<PAN>"
+  IN_AADHAAR: "<Aadhaar>"               # Presidio, Verhoeff-checked
+  US_SSN: "<SSN>"
+  BANK_ACCOUNT: "<account number>"      # custom: digits right after an account label
+  UPI_ID: "<UPI id>"                    # custom: name@handle (no dot after @, unlike email)
+  IN_IFSC: "<IFSC>"                     # custom
+
+# Custom recognizers: `group` = the regex group that is the identifier (labels stay readable).
+custom:
+  BANK_ACCOUNT:
+    pattern: '(?i)\b(?:a/?c|acct|account|acc)\.?(?:\s*(?:no|number|num))?\.?\s*[:#-]?\s*(\d[\d -]{7,20}\d)\b'
+    group: 1
+    score: 0.85
+  UPI_ID:
+    pattern: '(?<![\w.@-])([A-Za-z0-9][\w.-]{1,255}@[A-Za-z]{2,64})(?![\w@-])(?!\.[A-Za-z])'
+    group: 1
+    score: 0.6
+  IN_IFSC:
+    pattern: '\b([A-Z]{4}0[A-Z0-9]{6})\b'
+    group: 1
+    score: 0.6

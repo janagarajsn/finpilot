@@ -1,0 +1,111 @@
+# Categorizer rule lexicon (layer 3, after merchant memory). Deterministic, no LLM.
+# Each rule: category (taxonomy slug), patterns (regexes, case-insensitive, matched against the
+# normalized merchant AND the raw descriptor), sign (debit = money out, credit = money in, any),
+# confidence. The categorizer only ACCEPTS a rule hit with confidence >= rules_accept_threshold
+# (config/thresholds.yml, default 0.85); weaker hits are passed to the LLM as hints.
+# Conflicts: highest confidence wins, then the longest matching pattern.
+rules:
+  # ------------------------------------------------------------------ income (credit)
+  - category: salary
+    sign: credit
+    confidence: 0.95
+    patterns: ['\bSALARY\b', '\bSAL\s?CR', '\bPAYROLL\b', '\bGUSTO\b', '\bADP\b.*\bPAY', '\bDIRECT DEP(OSIT)?\b', '\bPAYCHEX\b']
+  - category: interest_dividends
+    sign: credit
+    confidence: 0.92
+    patterns: ['\bINT\.?\s?PD\b', '\bINTEREST (CREDIT|PAID|PAYMENT|EARNED)\b', '\bDIVIDEND\b', '\bDIV\b.*\bLTD\b', '\bFD INT\b']
+  - category: refunds
+    sign: credit
+    confidence: 0.9
+    patterns: ['\bREFUND\b', '\bREV(ERSAL)?[- /]', '\bCASHBACK\b', '\bCHARGEBACK\b', '\bRETURN CREDIT\b']
+  - category: freelance
+    sign: credit
+    confidence: 0.88
+    patterns: ['\bUPWORK\b', '\bFIVERR\b', '\bTOPTAL\b', '\bINVOICE\b']
+  # ------------------------------------------------------------------ fixed / essential
+  - category: rent_mortgage
+    sign: debit
+    confidence: 0.92
+    patterns: ['\bRENT\b', '\bLANDLORD\b', '\bMORTGAGE\b', '\bHOME LOAN\b', '\bNOBROKER\b', '\bZILLOW RENT', '\bAPARTMENTS?\b.*\bRENT', '\bSOCIETY MAINT']
+  - category: loan_emi
+    sign: debit
+    confidence: 0.9
+    patterns: ['\bEMI\b', '\bLOAN\b', '\bBAJAJ FIN', '\bNACH\b', '\bAUTO LOAN\b', '\bCAR LOAN\b', '\bSTUDENT LOAN\b', '\bNAVIENT\b', '\bSALLIE MAE\b']
+  - category: utilities
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bBESCOM\b', '\bTATA POWER\b', '\bADANI ELEC', '\bMSEDCL\b', '\bBSES\b', '\bELECTRICITY\b', '\bWATER (BILL|BOARD)\b',
+               '\bJIO\b', '\bAIRTEL\b', '\bVODAFONE\b', '\bVI POSTPAID\b', '\bBSNL\b', '\bACT FIBERNET\b', '\bTATA PLAY\b', '\bINDANE\b', '\bMAHANAGAR GAS\b',
+               '\bCOMCAST\b', '\bXFINITY\b', '\bVERIZON\b', '\bAT&?T\b', '\bT-?MOBILE\b', '\bPG&?E\b', '\bCON ?ED\b', '\bSPECTRUM\b', '\bDUKE ENERGY\b']
+  - category: insurance
+    sign: debit
+    confidence: 0.92
+    patterns: ['\bLIC\b', '\bINSURANCE\b', '\bPREMIUM\b', '\bSTAR HEALTH\b', '\bHDFC ERGO\b', '\bICICI LOMBARD\b', '\bPOLICYBAZAAR\b', '\bGEICO\b', '\bSTATE FARM\b', '\bPROGRESSIVE\b', '\bALLSTATE\b']
+  - category: subscriptions
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bNETFLIX\b', '\bSPOTIFY\b', '\bHOTSTAR\b', '\bDISNEY\b', '\bPRIME VIDEO\b', '\bAMAZON PRIME\b', '\bYOUTUBE\b', '\bAPPLE\.COM/BILL\b', '\bICLOUD\b',
+               '\bOPENAI\b', '\bCHATGPT\b', '\bANTHROPIC\b', '\bGITHUB\b', '\bNOTION\b', '\bADOBE\b', '\bMICROSOFT\s?\*?\s?365\b', '\bDROPBOX\b', '\bAWS\b', '\bAMAZON WEB SERVICES\b',
+               '\bGOOGLE \*?(CLOUD|STORAGE|ONE)\b', '\bHULU\b', '\bHBO ?MAX\b', '\bCULT\.?FIT\b', '\bPLANET FITNESS\b', '\bSONYLIV\b', '\bZEE5\b']
+  - category: education
+    sign: debit
+    confidence: 0.9
+    patterns: ['\bBYJU', '\bUNACADEMY\b', '\bCOURSERA\b', '\bUDEMY\b', '\bSCHOOL FEE', '\bTUITION\b', '\bCOLLEGE\b', '\bUNIVERSITY\b']
+  # ------------------------------------------------------------------ essential variable
+  - category: groceries
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bBIGBASKET\b', '\bBLINKIT\b', '\bZEPTO\b', '\bDMART\b', '\bAVENUE SUPERMARTS\b', '\bRELIANCE (FRESH|SMART|RETAIL)\b', '\bMORE RETAIL\b', '\bJIOMART\b', '\bNATURE.?S BASKET\b', '\bSTAR BAZAAR\b',
+               '\bWHOLE ?FOODS\b', '\bTRADER JOE', '\bKROGER\b', '\bSAFEWAY\b', '\bCOSTCO\b', '\bALDI\b', '\bPUBLIX\b', '\bINSTACART\b', '\bH-?E-?B\b', '\bWEGMANS\b', '\bSPROUTS\b']
+  - category: transport
+    sign: debit
+    confidence: 0.92
+    patterns: ['\bUBER\b(?!\s?EATS)', '\bOLA\b', '\bRAPIDO\b', '\bMETRO\b', '\bFASTAG\b', '\bNAMMA YATRI\b', '\bBMTC\b', '\bLYFT\b', '\bMTA\b', '\bCLIPPER\b', '\bPARKING\b', '\bTOLL\b']
+  - category: fuel
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bINDIAN OIL\b', '\bIOCL\b', '\bHPCL\b', '\bBPCL\b', '\bBHARAT PETROLEUM\b', '\bHP PETROL', '\bPETROL\b', '\bFUEL\b', '\bSHELL\b', '\bCHEVRON\b', '\bEXXON\b', '\bMOBIL\b', '\bBP#?\d', '\bSUNOCO\b', '\bTESLA SUPERCHARGER\b']
+  - category: health
+    sign: debit
+    confidence: 0.92
+    patterns: ['\bAPOLLO\b', '\bPHARM', '\bMEDPLUS\b', '\bNETMEDS\b', '\b1MG\b', '\bPRACTO\b', '\bHOSPITAL\b', '\bCLINIC\b', '\bDIAGNOSTIC', '\bDENTAL\b', '\bCVS\b', '\bWALGREENS\b', '\bRITE AID\b']
+  - category: fees_interest
+    sign: debit
+    confidence: 0.9
+    patterns: ['\bSMS (ALERT )?CHARGES?\b', '\bLATE (PAYMENT )?FEE\b', '\bFINANCE CHARGE\b', '\bANNUAL FEE\b', '\bOVERDRAFT\b', '\bATM FEE\b', '\bSERVICE CHARGE\b', '\bGST ON\b', '\bINTEREST CHARGE']
+  # ------------------------------------------------------------------ discretionary
+  - category: food_delivery
+    sign: debit
+    confidence: 0.96
+    patterns: ['\bSWIGGY\b', '\bZOMATO\b', '\bDOORDASH\b', '\bUBER\s?EATS\b', '\bGRUBHUB\b', '\bEATSURE\b', '\bPOSTMATES\b']
+  - category: dining_out
+    sign: debit
+    confidence: 0.9
+    patterns: ['\bSTARBUCKS\b', '\bCHAAYOS\b', '\bCAFE COFFEE DAY\b', '\bCCD\b', '\bTHIRD WAVE\b', '\bBLUE TOKAI\b', '\bBARBEQUE NATION\b', '\bHALDIRAM', '\bDOMINO', '\bMCDONALD', '\bKFC\b', '\bBURGER KING\b', '\bPIZZA HUT\b',
+               '\bSHAKE SHACK\b', '\bCHIPOTLE\b', '\bBLUE BOTTLE\b', '\bDUNKIN\b', '\bPANERA\b', '\bSWEETGREEN\b', '\bRESTAURANT\b', '\bCAFE\b', '\bBISTRO\b', '\bBAR & GRILL\b']
+  - category: entertainment
+    sign: debit
+    confidence: 0.9
+    patterns: ['\bBOOKMYSHOW\b', '\bPVR\b', '\bINOX\b', '\bCINEPOLIS\b', '\bSTEAM\b', '\bPLAYSTATION\b', '\bXBOX\b', '\bTICKETMASTER\b', '\bAMC THEAT', '\bFANDANGO\b', '\bLIVENATION\b']
+  - category: shopping
+    sign: debit
+    confidence: 0.88
+    patterns: ['\bFLIPKART\b', '\bMYNTRA\b', '\bAJIO\b', '\bNYKAA\b', '\bMEESHO\b', '\bCROMA\b', '\bRELIANCE DIGITAL\b', '\bDECATHLON\b', '\bIKEA\b', '\bTARGET\b', '\bBEST ?BUY\b', '\bWALMART\b', '\bETSY\b', '\bEBAY\b', '\bMACY', '\bNORDSTROM\b', '\bUNIQLO\b', '\bH&M\b', '\bZARA\b']
+  - category: travel
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bIRCTC\b', '\bINDIGO\b', '\bAIR INDIA\b', '\bVISTARA\b', '\bAKASA\b', '\bSPICEJET\b', '\bMAKEMYTRIP\b', '\bGOIBIBO\b', '\bCLEARTRIP\b', '\bYATRA\b', '\bOYO\b', '\bAIRBNB\b', '\bBOOKING\.COM\b', '\bEXPEDIA\b',
+               '\bDELTA AIR', '\bUNITED AIR', '\bAMERICAN AIR', '\bSOUTHWEST\b', '\bJETBLUE\b', '\bMARRIOTT\b', '\bHILTON\b', '\bHYATT\b', '\bAMTRAK\b']
+  # ------------------------------------------------------------------ transfers / savings / cash
+  - category: transfers
+    sign: any
+    confidence: 0.9
+    patterns: ['\bSELF TRANSFER\b', '\bOWN A/?C\b', '\bCC (BILL )?PAYMENT\b', '\bCREDIT CARD (BILL )?PAYMENT\b', '\bPAYMENT THANK YOU\b', '\bAUTOPAY PAYMENT\b', '\bTRANSFER TO (SAVINGS|CHECKING)\b', '\bTRANSFER FROM (SAVINGS|CHECKING)\b', '\bONLINE TRANSFER\b']
+  - category: savings_investments
+    sign: debit
+    confidence: 0.93
+    patterns: ['\bSIP\b', '\bZERODHA\b', '\bGROWW\b', '\bUPSTOX\b', '\bKUVERA\b', '\bCOIN BY ZERODHA\b', '\bMUTUAL FUND\b', '\bNPS\b', '\bPPF\b', '\bRECURRING DEPOSIT\b', '\bVANGUARD\b', '\bFIDELITY\b', '\bSCHWAB\b', '\bROBINHOOD\b', '\bBETTERMENT\b', '\bWEALTHFRONT\b', '\b401\(?K\)?']
+  - category: cash_atm
+    sign: debit
+    confidence: 0.97
+    patterns: ['\bATM[- /]?(WDL|WITHDRAWAL|CASH|CW)\b', '^ATM WITHDRAWAL$', '\bNWD\b', '\bCASH WITHDRAWAL\b', '\bATW\b', '\bCASH WDL\b']

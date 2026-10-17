@@ -1,0 +1,80 @@
+# Deterministic recommendation text (fallback when the LLM fails the grounding guard or Mesh is
+# down). Variables: the candidate's facts, `names`, `cur` (reporting currency), money(x, cur).
+cancel_subscription:
+  title: "Cancel {{ names.merchant }}"
+  action: "Cancel your {{ names.merchant }} subscription before its next charge."
+  why: >-
+    {{ names.merchant }} costs {{ money(monthly_cost, cur) }} a month
+    ({{ 'it overlaps with ' ~ (overlap_with|join(', ')) if overlap_with else ('its price went up' if 'price_hike' in flags else 'flagged as likely low value') }}).
+    Cancelling raises your expected balance in {{ simulation.horizon_days }} days by {{ money(simulation.end_change, cur) }}.
+
+category_cap:
+  title: "Cap {{ names.category }} spending"
+  action: >-
+    Spend about {{ cut_pct }}% less on {{ names.category }}{% if cap is defined %}, keeping it near {{ money(cap, cur) }} a month{% endif %}.
+  why: >-
+    {% if recent_month is defined %}{{ names.category }} reached {{ money(recent_month, cur) }} vs a usual {{ money(cap, cur) }}.{% else %}{{ names.category }} is your largest discretionary spend at about {{ money(monthly_spend, cur) }} a month.{% endif %}
+    A {{ cut_pct }}% cut adds {{ money(simulation.end_change, cur) }} to your expected balance in {{ simulation.horizon_days }} days.
+
+close_shortfall:
+  title: "{{ 'Avoid' if simulation.verdict_after == 'affordable' else 'Soften' }} the dip below your cushion"
+  action: "Cut {{ names.category }} by {{ cut_pct }}% for the next few weeks."
+  why: >-
+    In a bad case your balance falls to {{ money(simulation.min_p10_before, cur) }} around {{ low_date }}, below your
+    {{ money(cushion, cur) }} cushion. With the cut the bad-case low becomes {{ money(simulation.min_p10_after, cur) }}{{ '' if simulation.verdict_after == 'affordable' else ', still below the cushion, so combine it with the other steps' }}.
+
+goal_catch_up:
+  title: "Catch up on {{ names.goal }}"
+  action: "Move {{ money(monthly_transfer, cur) }} a month into {{ names.goal }}."
+  why: >-
+    {{ names.goal }} still needs {{ money(remaining, cur) }}{% if required_monthly %}, about {{ money(required_monthly, cur) }} a month to reach it on time{% endif %}.
+    Even after the transfers your bad-case low is {{ money(simulation.min_p10_after, cur) }}.
+
+cap_overrun:
+  title: "Stay within your {{ names.category }} cap"
+  action: "Spend about {{ cut_pct }}% less on {{ names.category }} for the rest of the month."
+  why: >-
+    You are on course to spend {{ money(projected, cur) }} on {{ names.category }} this month against your
+    {{ money(cap, cur) }} cap ({{ names.goal }}).
+
+delay_purchase:
+  title: "Wait {{ delay_days }} days for {{ names.purchase }}"
+  action: "Move the {{ names.purchase }} purchase to {{ new_date }}."
+  why: >-
+    Buying it on {{ planned_date }} takes your bad-case balance down to {{ money(bad_case_low_now, cur) }};
+    waiting until {{ new_date }} keeps it at {{ money(bad_case_low_if_delayed, cur) }}.
+
+fee_paydown:
+  title: "Stop paying fees{% if names.merchant %} at {{ names.merchant }}{% endif %}"
+  action: "Pay card bills in full and on time, and switch off paid alerts or services you don't use."
+  why: >-
+    You paid {{ money(fees_last_90_days, cur) }} in fees and interest in the last 90 days ({{ count }} charges), about
+    {{ money(monthly, cur) }} a month.
+
+refund_duplicate:
+  title: "Ask {{ names.merchant }} for a refund"
+  action: "Contact {{ names.merchant }} about the repeated charge on {{ dates }}."
+  why: >-
+    {{ money(charge, charge_currency) }} was charged {{ times }} times within a few days; a refund would return
+    {{ money(refund, cur) }}.
+
+promote_recurring:
+  title: "Make {{ names.merchant }} a recurring item"
+  action: "Declare {{ names.merchant }} as a recurring item so it is scheduled in your forecast."
+  why: >-
+    It was charged {{ charges_seen }} times, about {{ money(amount, amount_currency) }} every {{ every }}, next on
+    {{ next_expected }}.
+
+goal_surplus:
+  title: "Put the {{ names.goal }} surplus to work"
+  action: "Move the extra {{ money(surplus, cur) }} a month to another goal or to investments."
+  why: >-
+    {{ names.goal }} only needs {{ money(required_monthly, cur) }} a month and you are on course to save
+    {{ money(monthly_savings, cur) }}, finishing around {{ eta }}.
+
+debt_catch_up:
+  title: "Pay {{ names.goal }} down faster"
+  action: "Add {{ money(extra_payment, cur) }} a month to your {{ names.goal }} payments."
+  why: >-
+    {{ money(remaining, cur) }} is left; at {{ money(monthly_payment, cur) }} a month you would miss the target date.
+    The extra payments keep your bad-case low at {{ money(simulation.min_p10_after, cur) }}.

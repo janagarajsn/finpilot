@@ -1,0 +1,95 @@
+[project]
+name = "finpilot"
+version = "0.1.0"
+description = "FinPilot: proactive multi-agent, multi-user personal finance (Mesh API + Langfuse + LangGraph)"
+authors = [{ name = "Janagaraj" }]
+license = "MIT"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
+    "babel>=2.18.0",
+    "celery>=5.6.3",
+    "fastapi>=0.143.2",
+    "fastmcp>=4.1.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "langfuse>=5.0.1",
+    "langgraph>=1.2.15",
+    "langgraph-checkpoint-redis>=0.5.2",
+    "mcp>=2.3.0",
+    "numpy>=2.5.4",
+    "openai>=3.31.0",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.6",
+    "pgvector>=0.5.1",
+    "presidio-analyzer==2.2.364",
+    "psycopg[binary]>=3.3.6",
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+    "pyjwt>=2.15.1",
+    "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
+    "redis>=8.1.0",
+    "sqlalchemy>=2",
+    "tenacity>=9.2.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["finpilot", "mcp_servers", "eval"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["deploy", "alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+ignore = ["S101", "S311", "RUF001", "RUF002", "RUF003", "E501"]  # E501: ruff format owns line length
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S", "B"]
+"eval/**" = ["S"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_unused_ignores = false
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not live'"
+markers = [
+  "live: hits real external services (Mesh, FX API); skipped by default",
+  "db: needs Postgres",
+  "redis: needs Redis",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.169.4",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.1",
+    "types-pyyaml>=6.0.12.20260906",
+    "types-redis>=4.6.0.20241004",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Form", "fastapi.File", "fastapi.params.Depends"]
+
+[tool.uv]
+# presidio-analyzer 2.2.364 caps numpy < 2.5 (a conservative pin, not a known incompatibility);
+# FinPilot runs numpy 2.5 and the PII tests + full eval verify Presidio works with it.
+override-dependencies = ["numpy>=2.5.4"]

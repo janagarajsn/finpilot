@@ -1,0 +1,71 @@
+# Chat agent texts. Progress lines are shown while a tool runs (variables: `a` = the tool's
+# arguments). Headlines are the deterministic fallback when an answer cannot be verified
+# (variables: `r` = the tool's result, money(x, cur)). Plain text.
+progress:
+  cache: "Checking your saved answers…"
+  route: "Reading your question…"
+  simulator: "Running a what-if on your forecast…"
+  query_transactions: >-
+    Looking at your {% if a.get('category') %}{{ a.get('category') }} {% endif %}{% if a.get('merchant') %}{{ a.get('merchant') }} {% endif %}{{ 'income' if a.get('kind') == 'income' else 'spending' }}…
+  get_category_trend: "Checking the trend for {{ a.get('category') or 'that category' }}…"
+  get_forecast: "Projecting your balance for the next 90 days…"
+  simulate: "Simulating the change on your forecast…"
+  list_subscriptions: "Reviewing your subscriptions…"
+  get_goal_status: "Checking your goals…"
+  list_recurring: "Looking at your recurring bills and income…"
+  explain_recommendation: "Looking up your recommendations…"
+  recall_memory: "Recalling what you told me before…"
+  convert_currency: "Converting with stored exchange rates…"
+  decline_off_topic: "Checking what I can help with…"
+  verify: "Checking every number in the answer…"
+
+retry: >-
+  Your answer did not pass FinPilot's checks: {% for p in problems %}{{ p }}{{ '; ' if not loop.last else '.' }}{% endfor %}
+  Use only numbers, amounts and dates that appear in the tool results (you may round to whole
+  units). If you need another figure, call a tool. Never calculate or convert yourself. Reply in
+  plain text.
+
+unavailable: >-
+  The assistant is unavailable right now, so I can only answer the standard questions (for example
+  "What are my top categories?" or "What's coming up?"). Your dashboard and insights are up to date.
+
+# Scope guardrail replies (fixed text, no LLM).
+out_of_scope: >-
+  I can only help with your money in FinPilot, so I'll skip that one. Ask me about your spending,
+  income, bills, subscriptions, forecast or goals, or whether you can afford something, for
+  example "How much did I spend on dining last month?" or "Can I afford a ₹50,000 phone?"
+smalltalk: >-
+  Hi! I'm FinPilot's assistant. I answer questions about your own money: what you spent and where,
+  your income, upcoming bills, subscriptions, your forecast and goals, and "can I afford…"
+  questions. Try "Where can I save more?" or "What's coming up this month?"
+
+fallback_intro: "I couldn't verify every number in my answer, so here is what your data shows:"
+fallback_empty: >-
+  I couldn't put together a verified answer to that. Try asking about a specific category,
+  merchant, period, goal or purchase.
+
+headline:
+  query_transactions: >-
+    {% if r.get('error') %}{% else %}{{ 'Income' if r.kind == 'income' else 'Spending' }}{% if r.filters.get('category') %} on {{ r.filters.get('category') }}{% endif %}{% if r.filters.get('merchant') %} at {{ r.filters.get('merchant') }}{% endif %}
+    from {{ r['from'] }} to {{ r.to }}: {{ money(r.total, r.currency) }} across {{ r.count }} transactions{% if r.get('previous') %}
+    (previous period {{ money(r.previous.total, r.currency) }}){% endif %}.{% endif %}
+  get_category_trend: >-
+    {% if not r.get('error') %}{{ r.category }}: {{ money(r.last_full_month, r.currency) }} last full month, {{ money(r.month_before, r.currency) }} the month before.{% endif %}
+  get_forecast: >-
+    Forecast: about {{ money(r.end_balance_typical, r.currency) }} in {{ r.days }} days; in a bad case the balance
+    could drop to {{ money(r.lowest_balance_bad_case, r.currency) }} around {{ r.lowest_balance_bad_case_date }} ({{ r.verdict }}).
+  simulate: >-
+    {% if not r.get('error') %}With that change: {{ r.with_change.verdict }}, lowest balance in a bad case
+    {{ money(r.with_change.lowest_balance_bad_case, r.currency) }} (without it {{ money(r.without_change.lowest_balance_bad_case, r.currency) }}).{% endif %}
+  list_subscriptions: >-
+    {{ r.count }} active subscriptions costing {{ money(r.monthly_total, r.currency) }} a month.
+  get_goal_status: >-
+    {% for g in r.goals %}{{ g.name }}: {{ g.status|replace('_', ' ') }}{{ '; ' if not loop.last else '.' }}{% else %}No goals yet.{% endfor %}
+  list_recurring: >-
+    {{ r.next_14_days|length }} recurring items due in the next 14 days.
+  explain_recommendation: >-
+    {% if r.get('recommendations') %}Current advice: {% for x in r.recommendations %}{{ x.title }}{{ '; ' if not loop.last else '.' }}{% endfor %}{% elif r.get('title') %}{{ r.title }}.{% endif %}
+  recall_memory: ""
+  decline_off_topic: ""
+  convert_currency: >-
+    {% if not r.get('error') %}{{ money(r.amount, r.currency) }} = {{ money(r.converted.amount, r.converted.currency) }} at the rate of {{ r.rate_date }}{% if r.approximate %} (approximate){% endif %}.{% endif %}

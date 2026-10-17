@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block head_scripts %}<script src="/static/js/import.js"></script>{% endblock %}
+{% block content %}
+{% from "partials/sample_data.html" import sample_data %}
+<div x-data="importWizard">
+<h1 class="text-2xl font-semibold mb-1">Import transactions</h1>
+<p class="text-sm text-muted mb-6">Use our template for a zero-error import, or upload your bank's CSV/XLSX export and map the columns. Nothing is saved until you confirm, and you can undo any import.</p>
+
+<ol class="flex flex-wrap gap-2 mb-6 text-sm" aria-label="Steps">
+  {% for n, label in [(1,"Template"),(2,"Upload"),(3,"Map & preview"),(4,"Done")] %}
+  <li class="flex items-center gap-2"><span class="h-6 w-6 rounded-full flex items-center justify-center text-xs"
+      :class="step >= {{ n }} ? 'bg-brand-600 text-white' : 'ring-1 ring-slate-300 dark:ring-slate-600'">{{ n }}</span>
+    <span :class="step === {{ n }} ? 'font-semibold' : 'text-muted'">{{ label }}</span>{% if n < 4 %}<span class="text-slate-300 mx-1">→</span>{% endif %}</li>
+  {% endfor %}
+</ol>
+<div x-show="error" x-text="error" role="alert" class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+
+{# ---------------- steps 1-2 ---------------- #}
+<div x-show="step <= 2" class="grid lg:grid-cols-2 gap-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="tpl-h">
+    <h2 id="tpl-h" class="font-semibold mb-2">1 · Download the template</h2>
+    <div class="flex gap-2 mb-4">
+      <a href="/import/template.xlsx" @click="step = 2" class="rounded-lg bg-brand-600 text-white px-4 py-2 text-sm">Excel template (.xlsx)</a>
+      <a href="/import/template.csv" @click="step = 2" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-4 py-2 text-sm">CSV template</a>
+    </div>
+    <p class="text-xs text-muted mb-2">The Excel file has dropdowns for type, category and currency, plus an Instructions sheet and a sheet listing your categories.</p>
+    <table class="w-full text-xs mt-3">
+      <thead class="eyebrow text-left"><tr><th class="py-1 pr-2">Column</th><th class="py-1">Rules</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for c in schema.columns %}<tr><td class="py-1.5 pr-2 font-mono align-top">{{ c.name }}{% if c.required %}<span class="text-neg">*</span>{% endif %}</td><td class="py-1.5 text-soft">{{ c.description }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="up-h">
+    <h2 id="up-h" class="font-semibold mb-2">2 · Upload your file</h2>
+    <label class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-10 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 text-center">
+      <span class="text-3xl" aria-hidden="true">📄</span>
+      <span class="mt-2 font-medium" x-text="busy ? 'Reading file…' : 'Choose a CSV or XLSX file'"></span>
+      <span class="text-xs text-muted">Up to 5 MB / 50,000 rows. Bank exports work too.</span>
+      <input type="file" accept=".csv,.xlsx,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="sr-only" @change="upload($event)" :disabled="busy">
+    </label>
+  </section>
+</div>
+
+{# ---------------- step 3 ---------------- #}
+<template x-if="step === 3 && pv">
+<div class="space-y-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="map-h">
+    <div class="flex justify-between items-baseline"><h2 id="map-h" class="font-semibold mb-3">3 · Map columns</h2><span class="text-xs text-muted" x-text="pv.batch.filename"></span></div>
+    <div class="grid sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+      <template x-for="f in fields" :key="f">
+        <label><span class="capitalize" x-text="f.replace('_', ' ')"></span>
+          <select x-model="mapping[f]" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+            <option value="">—</option>
+            <template x-for="(h, i) in pv.headers" :key="i"><option :value="i" :selected="mapping[f] === i" x-text="h"></option></template>
+          </select></label>
+      </template>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm mt-4">
+      <label :class="pv.needs_date_format ? 'ring-2 ring-amber-400 rounded-lg p-1' : ''">Date format
+        <select x-model="options.date_format" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+          <option value="">Auto-detect</option>
+          <template x-for="fmt in (options.date_format_candidates && options.date_format_candidates.length ? options.date_format_candidates : Object.keys(dateFormats))" :key="fmt">
+            <option :value="fmt" :selected="options.date_format === fmt" x-text="dateFormats[fmt] || fmt"></option></template>
+        </select></label>
+      <label>Signed amounts mean
+        <select x-model="options.amount_sign" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+          <option value="negative_is_expense">negative = expense (bank account)</option><option value="positive_is_expense">positive = expense (credit card)</option></select></label>
+      <label class="flex items-center gap-2 mt-6"><input type="checkbox" x-model="options.decimal_comma"> Decimal comma (1.234,56)</label>
+      <label class="flex items-center gap-2 mt-6"><input type="checkbox" x-model="options.include_duplicates"> Import duplicates anyway</label>
+    </div>
+    <div class="mt-4 flex justify-end"><button type="button" @click="remap" :disabled="busy" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-4 py-2 text-sm">Update preview</button></div>
+  </section>
+
+  <section x-show="pv.needs_date_format" class="rounded-2xl bg-amber-50 dark:bg-amber-900/20 ring-1 ring-amber-200 p-5 text-sm" role="alert">
+    <strong>Which way round are your dates?</strong> Values like <span class="font-mono" x-text="(pv.sample_raw && pv.sample_raw[0] && pv.sample_raw[0][mapping.date]) || '05/01/2024'"></span> could be day-first or month-first. Choose a date format above, then update the preview.
+  </section>
+
+  <section x-show="!pv.needs_date_format" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="pv-h">
+    <h2 id="pv-h" class="font-semibold mb-3">Preview</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4 text-center text-sm">
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-3"><div class="text-xl font-semibold" x-text="pv.counts.total ?? 0"></div>rows</div>
+      <div class="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3"><div class="text-xl font-semibold text-pos" x-text="pv.counts.new ?? 0"></div>new</div>
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-3"><div class="text-xl font-semibold" x-text="pv.counts.duplicate ?? 0"></div>duplicates <span class="block text-xs text-muted" x-text="options.include_duplicates ? 'will import' : 'skipped'"></span></div>
+      <div class="rounded-lg bg-rose-50 dark:bg-rose-900/30 p-3"><div class="text-xl font-semibold text-neg" x-text="pv.counts.invalid ?? 0"></div>invalid (skipped)</div>
+      <div class="rounded-lg bg-amber-50 dark:bg-amber-900/30 p-3"><div class="text-xl font-semibold text-warn" x-text="pv.counts.warnings ?? 0"></div>with warnings</div>
+    </div>
+    <div class="overflow-x-auto" tabindex="0">
+      <table class="w-full text-xs">
+        <thead class="eyebrow text-left"><tr><th class="p-1.5">Row</th><th class="p-1.5">Date</th><th class="p-1.5">Description</th><th class="p-1.5 text-right">Original</th><th class="p-1.5 text-right">In INR</th><th class="p-1.5">Rate · date · source</th><th class="p-1.5"></th></tr></thead>
+        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+          <template x-for="r in pv.rows" :key="r.row"><tr>
+            <td class="p-1.5 text-muted" x-text="r.row"></td><td class="p-1.5 whitespace-nowrap" x-text="r.date"></td>
+            <td class="p-1.5" x-text="r.description"></td>
+            <td class="p-1.5 text-right whitespace-nowrap" :class="Number(r.amount) > 0 ? 'text-pos' : ''" x-text="money(r.amount, r.currency)"></td>
+            <td class="p-1.5 text-right whitespace-nowrap" x-text="money(r.amount_inr, 'INR')"></td>
+            <td class="p-1.5 text-muted whitespace-nowrap" x-text="r.currency === 'INR' ? '—' : (Number(r.fx_rate).toFixed(4) + ' · ' + r.fx_rate_date + ' · ' + r.fx_source.replace('_', ' '))"></td>
+            <td class="p-1.5"><span x-show="r.duplicate" class="rounded bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5">duplicate</span></td>
+          </tr></template>
+        </tbody>
+      </table>
+    </div>
+    <template x-if="pv.errors.length">
+      <div class="mt-4">
+        <h3 class="text-sm font-semibold mb-1">Rows needing attention</h3>
+        <ul class="max-h-56 overflow-y-auto text-xs space-y-1" tabindex="0">
+          <template x-for="e in pv.errors" :key="e.row"><li>
+            <span class="font-mono text-muted" x-text="'Row ' + e.row + ':'"></span>
+            <span class="text-neg" x-text="e.errors.join(' ')"></span> <span class="text-warn" x-text="(e.warnings || []).join(' ')"></span></li></template>
+        </ul>
+      </div>
+    </template>
+    <div class="mt-5 flex justify-between items-center">
+      <button type="button" @click="step = 2; pv = null" class="text-sm text-muted hover:underline">← Choose another file</button>
+      <button type="button" @click="confirm" :disabled="busy || !(pv.counts.new || (options.include_duplicates && pv.counts.duplicate))"
+              class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 text-sm disabled:opacity-50"
+              x-text="busy ? 'Importing…' : 'Import ' + ((pv.counts.new || 0) + (options.include_duplicates ? (pv.counts.duplicate || 0) : 0)) + ' transactions'"></button>
+    </div>
+  </section>
+</div>
+</template>
+
+{# ---------------- step 4 ---------------- #}
+<template x-if="step === 4 && result">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-6 text-center" role="status">
+    <div class="text-4xl mb-2" aria-hidden="true" x-text="result.status === 'imported' ? '✅' : '⚠️'"></div>
+    <h2 class="text-lg font-semibold" x-text="result.status === 'imported' ? 'Import complete' : 'Import ' + result.status"></h2>
+    <p class="text-sm text-muted mt-1" x-show="result.row_counts_json.imported !== undefined">
+      <span x-text="result.row_counts_json.imported"></span> transactions added · <span x-text="result.row_counts_json.skipped_duplicates || 0"></span> duplicates skipped · <span x-text="result.row_counts_json.invalid || 0"></span> invalid rows skipped</p>
+    <div class="mt-4 flex justify-center gap-2">
+      <a :href="'/app/transactions?import_batch_id=' + result.id" class="rounded-lg bg-brand-600 text-white px-4 py-2 text-sm">View imported transactions</a>
+      <a href="/app/import" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-4 py-2 text-sm">Import another file</a>
+    </div>
+  </section>
+</template>
+
+<div x-show="step <= 2" class="mt-6">{{ sample_data(sample) }}</div>
+
+{% if batches %}
+<section id="history" class="mt-10" aria-labelledby="hist-h">
+  <h2 id="hist-h" class="eyebrow mb-2">Import history</h2>
+  <div class="rounded-2xl ring-1 ring-slate-200 dark:ring-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+    {% for b in batches %}
+    <div class="p-3 flex flex-wrap items-center gap-3">
+      <span class="flex-1 min-w-[12rem] truncate">{{ b.filename }}</span>
+      <span class="text-xs text-muted">{{ b.created_at.strftime('%d %b %Y %H:%M') }}</span>
+      <span class="badge {{ {'imported':'bg-emerald-100 dark:bg-emerald-900/40 text-pos','undone':'bg-slate-200 text-soft','failed':'bg-rose-100 dark:bg-rose-900/40 text-neg'}.get(b.status, 'bg-amber-100 dark:bg-amber-900/40 text-amber-800') }}">{{ b.status }}</span>
+      <span class="text-xs text-muted w-28">{% if b.row_counts_json.imported is defined %}{{ b.row_counts_json.imported }} added{% endif %}</span>
+      {% if b.status == 'imported' %}<button type="button" @click="undo('{{ b.id }}')" class="text-xs text-neg hover:underline">Undo this import</button>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+</div>
+{% endblock %}

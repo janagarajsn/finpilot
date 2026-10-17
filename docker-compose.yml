@@ -1,0 +1,115 @@
+# FinPilot — `docker compose up --build` brings up everything.
+# Langfuse Cloud mode (skip the self-hosted stack):
+#   docker compose up app worker beat fx-mcp finpilot-postgres finpilot-redis
+include:
+  - path: deploy/langfuse/docker-compose.yml
+
+x-app: &app
+  build: .
+  image: finpilot:local
+  env_file:
+    - path: .env
+      required: false
+  volumes:
+    # emails/messages from the log sink (no SMTP/Telegram configured) appear in ./outbox
+    - ./outbox:/app/outbox
+  environment: &app-env
+    DATABASE_URL: postgresql+psycopg://finpilot_app:${FINPILOT_APP_DB_PASSWORD:-finpilot_app}@finpilot-postgres:5432/finpilot
+    DATABASE_MIGRATION_URL: postgresql+psycopg://${POSTGRES_USER:-finpilot}:${POSTGRES_PASSWORD:-finpilot}@finpilot-postgres:5432/finpilot
+    DATABASE_ADMIN_URL: postgresql+psycopg://finpilot_admin:${FINPILOT_ADMIN_DB_PASSWORD:-finpilot_admin}@finpilot-postgres:5432/finpilot
+    REDIS_URL: redis://finpilot-redis:6379/0
+    CELERY_BROKER_URL: redis://finpilot-redis:6379/1
+    CELERY_RESULT_BACKEND: redis://finpilot-redis:6379/2
+    FX_MCP_URL: http://fx-mcp:8765/mcp
+    LANGFUSE_HOST: ${LANGFUSE_HOST_INTERNAL:-http://langfuse-web:3000}
+    LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-finpilot-local}
+    LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-finpilot-local}
+  depends_on: &app-deps
+    finpilot-postgres: {condition: service_healthy}
+    finpilot-redis: {condition: service_healthy}
+    fx-mcp: {condition: service_started, required: false}
+  restart: unless-stopped
+
+services:
+  app:
+    <<: *app
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    <<: *app
+    command: ["celery", "-A", "finpilot.tasks.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    depends_on:
+      <<: *app-deps
+      app: {condition: service_healthy}  # app runs migrations first
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "finpilot.tasks.celery_app", "beat", "--loglevel=INFO",
+              "--schedule=/tmp/celerybeat-schedule"]
+    depends_on:
+      <<: *app-deps
+      app: {condition: service_healthy}
+
+  fx-mcp:
+    image: finpilot:local
+    build: .
+    command: ["python", "-m", "mcp_servers.fx.server"]
+    environment:
+      FX_MCP_PORT: "8765"
+      FX_SOURCE_BASE_URL: ${FX_SOURCE_BASE_URL:-https://api.frankfurter.dev/v2}
+      FX_PROVIDER: ${FX_PROVIDER:-ECB}
+      FX_SUPPORTED: INR,USD
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+    restart: unless-stopped
+
+  finpilot-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-finpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finpilot}
+      POSTGRES_DB: finpilot
+      FINPILOT_APP_DB_PASSWORD: ${FINPILOT_APP_DB_PASSWORD:-finpilot_app}
+      FINPILOT_ADMIN_DB_PASSWORD: ${FINPILOT_ADMIN_DB_PASSWORD:-finpilot_admin}
+      FINPILOT_RO_DB_PASSWORD: ${FINPILOT_RO_DB_PASSWORD:-finpilot_ro}
+      TZ: UTC
+    volumes:
+      - finpilot_pg_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init.sh:/docker-entrypoint-initdb.d/10-init.sh:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finpilot} -d finpilot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  finpilot-redis:
+    image: redis:8
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - finpilot_redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  finpilot_pg_data:
+  finpilot_redis_data:

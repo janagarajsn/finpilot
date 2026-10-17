@@ -1,0 +1,7 @@
+{% from "partials/field.html" import input, error, notice, submit %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{{ notice(notice_msg) }}
+{{ error(error_msg) }}
+{{ input("email", "Email", "email", email or "", "email") }}
+{{ input("password", "Password", "password", "", "current-password") }}
+{{ submit("Sign in") }}

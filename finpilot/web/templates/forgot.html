@@ -1,0 +1,14 @@
+{% extends "_auth_layout.html" %}
+{% from "partials/field.html" import input, error, notice, submit %}
+{% block title %}Forgot password{% endblock %}
+{% block card %}
+<h1 class="text-lg font-semibold mb-2">Reset your password</h1>
+<p class="text-sm text-muted mb-4">We'll email you a single-use link, valid for 30 minutes.</p>
+<form id="forgot-form" method="post" action="/web/forgot" hx-post="/web/forgot" hx-target="#forgot-form" hx-select="#forgot-form" hx-swap="outerHTML">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {{ notice(notice_msg) }}
+  {{ error(error_msg) }}
+  {% if not notice_msg %}{{ input("email", "Email", "email", "", "email") }}{{ submit("Send reset link") }}{% endif %}
+</form>
+{% endblock %}
+{% block below %}<a href="/login" class="text-accent hover:underline">Back to sign in</a>{% endblock %}

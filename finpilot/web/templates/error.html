@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ status }}{% endblock %}
+{% block content %}
+<div class="text-center py-16">
+  <div class="text-5xl font-bold text-muted">{{ status }}</div>
+  <p class="mt-4 text-soft">{{ message }}</p>
+  <a href="/" class="inline-block mt-6 text-accent hover:underline">Back to FinPilot</a>
+</div>
+{% endblock %}

@@ -1,0 +1,135 @@
+# Vendored from https://github.com/langfuse/langfuse/blob/main/docker-compose.yml (2026-10-15, server v4).
+# FinPilot changes (see DESIGN_NOTES.md):
+#   - services prefixed `langfuse-` to avoid name collisions with ours
+#   - Postgres: reuses `finpilot-postgres` (database `langfuse`) instead of a bundled postgres
+#   - host ports: only langfuse-web (3000) and minio S3 (9090) are published; others internal
+#   - headless init (org/project/user/keys) from .env so it works with zero clicks
+#   - AI-feature / OCI / Azure env passthroughs trimmed (defaults were empty/disabled)
+x-langfuse-env: &langfuse-env
+  NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-finpilot}:${POSTGRES_PASSWORD:-finpilot}@finpilot-postgres:5432/langfuse
+  SALT: ${LANGFUSE_SALT:-mysalt}
+  ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+  TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
+  LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+  CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
+  CLICKHOUSE_URL: http://langfuse-clickhouse:8123
+  CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+  CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+  CLICKHOUSE_CLUSTER_ENABLED: "false"
+  LANGFUSE_USE_AZURE_BLOB: "false"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_USER:-minio}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-miniosecret}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_USER:-minio}
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-miniosecret}
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://langfuse-minio:9000
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+  LANGFUSE_S3_BATCH_EXPORT_ENABLED: "false"
+  REDIS_HOST: langfuse-redis
+  REDIS_PORT: "6379"
+  REDIS_AUTH: ${LANGFUSE_REDIS_AUTH:-myredissecret}
+  REDIS_TLS_ENABLED: "false"
+
+services:
+  langfuse-worker:
+    image: docker.langfuse.com/langfuse/langfuse-worker:4
+    restart: always
+    depends_on: &langfuse-depends-on
+      finpilot-postgres: {condition: service_healthy}
+      langfuse-minio: {condition: service_healthy}
+      langfuse-redis: {condition: service_healthy}
+      langfuse-clickhouse: {condition: service_healthy}
+    environment:
+      <<: *langfuse-env
+
+  langfuse-web:
+    image: docker.langfuse.com/langfuse/langfuse:4
+    restart: always
+    depends_on: *langfuse-depends-on
+    ports:
+      - "${LANGFUSE_PORT:-3000}:3000"
+    environment:
+      <<: *langfuse-env
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-mysecret}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:9090
+      LANGFUSE_S3_MEDIA_UPLOAD_INTERNAL_ENDPOINT: http://langfuse-minio:9000
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-finpilot}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-FinPilot}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-finpilot}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-FinPilot}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-finpilot-local}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-finpilot-local}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-admin@finpilot.local}
+      LANGFUSE_INIT_USER_NAME: ${LANGFUSE_INIT_USER_NAME:-FinPilot Admin}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-finpilot-admin-pw}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/public/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  langfuse-clickhouse:
+    image: docker.io/clickhouse/clickhouse-server:25.12
+    restart: always
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  langfuse-minio:
+    image: cgr.dev/chainguard/minio
+    restart: always
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: ${LANGFUSE_MINIO_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_PASSWORD:-miniosecret}
+    ports:
+      - "9090:9000"
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  langfuse-redis:
+    image: docker.io/redis:7
+    restart: always
+    command: >
+      --requirepass ${LANGFUSE_REDIS_AUTH:-myredissecret}
+      --maxmemory-policy noeviction
+    volumes:
+      - langfuse_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${LANGFUSE_REDIS_AUTH:-myredissecret}", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  langfuse_clickhouse_data:
+  langfuse_clickhouse_logs:
+  langfuse_minio_data:
+  langfuse_redis_data:

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Pipeline trace{% endblock %}
+{% block head_scripts %}<script src="/static/js/pipeline.js"></script>{% endblock %}
+{% block content %}
+{% set STATUS = {'succeeded': 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200', 'degraded': 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200', 'failed': 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200', 'skipped': 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300', 'running': 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200'} %}
+<div x-data="pipelinePage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Pipeline trace</h1>
+    <p class="text-sm text-muted max-w-3xl">Every time your data changes, FinPilot's agents run in order: categorize → analyze → forecast → goals → advise → record the reasoning → snapshot. Each step is checkpointed, so an interrupted run picks up where it stopped. When the AI service is unavailable the run continues in <em>degraded mode</em>: rules and templates only, no AI calls.</p>
+  </div>
+  <button type="button" @click="start" :disabled="busy" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm">
+    <span x-show="!busy">Run now</span><span x-show="busy" x-cloak style="display:none">Running…</span></button>
+</div>
+<div x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+
+<section x-show="live" x-cloak style="display:none" aria-live="polite" class="mb-6 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+  <h2 class="font-semibold mb-3">Live run</h2>
+  <ol class="space-y-1 text-sm">
+    <template x-for="s in (live ? live.steps : [])" :key="s.step + s.started_at">
+      <li class="flex items-center gap-3"><span class="w-28" x-text="s.step.replace('_', ' ')"></span>
+        <span class="rounded px-1.5 py-0.5 text-xs" :class="badge(s.status)" x-text="s.status"></span>
+        <span class="text-xs text-muted" x-text="s.ms !== undefined ? s.ms + ' ms' : ''"></span></li>
+    </template>
+  </ol>
+  <p class="mt-2 text-sm" x-text="live && live.status !== 'running' ? ('Finished: ' + live.status + (live.degraded ? ' (degraded)' : '')) : 'Working…'"></p>
+</section>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="runs-h">
+    <h2 id="runs-h" class="font-semibold mb-3">Recent runs</h2>
+    {% if runs %}
+    <ul class="space-y-1 text-sm">
+      {% for r in runs %}
+      <li><a href="/app/pipeline?run={{ r.id }}" class="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 {{ 'bg-slate-100 dark:bg-slate-800' if run and run.id == r.id }}">
+        <span>{{ r.started_at.strftime('%d %b %H:%M') }} · {{ r.trigger|capitalize }}</span>
+        <span class="flex gap-1">{% if r.degraded %}<span class="badge {{ STATUS['degraded'] }}">degraded</span>{% endif %}<span class="badge {{ STATUS[r.status] }}">{{ r.status }}</span></span></a></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-muted">No runs yet. Import or add transactions, or click "Run now".</p>{% endif %}
+  </section>
+
+  <section class="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="run-h">
+    {% if run %}
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+      <div>
+        <h2 id="run-h" class="font-semibold">Run <code class="text-xs">{{ run.id }}</code></h2>
+        <p class="text-xs text-muted">{{ run.trigger|capitalize }} · started {{ run.started_at.strftime('%d %b %Y %H:%M:%S') }}{% if run.ended_at %} · took {{ ((run.ended_at - run.started_at).total_seconds() * 1000)|round|int }} ms{% endif %} · data version {{ run.data_version_start }} → {{ run.data_version_end or '…' }}</p>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span class="rounded px-1.5 py-0.5 {{ STATUS[run.status] }}">{{ run.status }}</span>
+        {% if run.degraded %}<span class="badge {{ STATUS['degraded'] }}">Degraded</span> <span class="text-xs text-muted">{{ run.degraded_reason }}</span>{% endif %}
+        {% if run.status == 'failed' %}<button type="button" @click="resume({{ run.id|string|tojson }})" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-2 py-1">Resume</button>{% endif %}
+        {% if langfuse_base and run.langfuse_trace_id %}<a class="text-accent hover:underline" target="_blank" rel="noopener" href="{{ langfuse_base }}/traces/{{ run.langfuse_trace_id }}">Langfuse ↗</a>{% endif %}
+      </div>
+    </div>
+    {% if run.error %}<p class="mb-3 rounded bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-200 px-3 py-2 text-sm">{{ run.error }}</p>{% endif %}
+    <ol class="relative border-l border-slate-200 dark:border-slate-700 ml-2 space-y-3">
+      {% for st in run.steps %}
+      <li class="ml-4">
+        <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full {{ {'succeeded':'bg-emerald-500','degraded':'bg-amber-500','failed':'bg-rose-500','skipped':'bg-slate-300 dark:bg-slate-600','running':'bg-sky-500'}[st.status] }}" aria-hidden="true"></span>
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <span class="font-medium">{{ st.step|replace('_', ' ')|capitalize }}</span>
+          <span class="badge {{ STATUS[st.status] }}">{{ st.status }}</span>
+          {% if st.summary_json.ms is defined %}<span class="text-xs text-muted">{{ st.summary_json.ms }} ms</span>{% endif %}
+        </div>
+        <p class="text-xs text-muted break-words">{% if st.status == 'skipped' %}{{ st.summary_json.reason }}{% elif st.summary_json.error %}{{ st.summary_json.error }}{% else %}{% for k, v in st.summary_json.items() if k not in ('ms',) and v is not none and v not in ({}, [], '') %}{{ k|replace('_', ' ') }}: {{ v if v is not mapping else (v.items()|map('join', '=')|join(', ')) }}{{ ' · ' if not loop.last }}{% endfor %}{% endif %}</p>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}<h2 id="run-h" class="sr-only">Run</h2><p class="text-sm text-muted">Select a run.</p>{% endif %}
+  </section>
+</div>
+{% if jobs %}
+<section class="mt-6 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="jobs-h">
+  <h2 id="jobs-h" class="font-semibold mb-1">Scheduler <span class="text-xs font-normal text-muted">(admin)</span></h2>
+  <p class="text-sm text-muted mb-3">Celery beat ticks. Each tick selects the users it applies to; nothing is scheduled per user. Also at <code>GET /scheduler/jobs</code>.</p>
+  <div class="overflow-x-auto" tabindex="0"><table class="w-full text-xs">
+    <thead class="eyebrow text-left"><tr><th class="py-1">Job</th><th>Schedule</th><th>Last run</th><th>Result</th><th>Next run</th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for j in jobs %}<tr>
+      <td class="py-1.5">{{ j.name }}</td><td>{{ j.schedule }}</td>
+      <td>{{ j.last_run.strftime('%d %b %H:%M UTC') if j.last_run else 'Never' }}</td>
+      <td>{% if j.last_status %}<span class="badge {{ STATUS.get(j.last_status, '') }}">{{ j.last_status }}</span> <span class="text-muted">{{ ((j.recent[0].result_json or '')|string)[:60] if j.recent else '' }}</span>{% endif %}</td>
+      <td>{{ j.next_run.strftime('%d %b %H:%M UTC') if j.next_run else '' }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+</div>
+{% endblock %}

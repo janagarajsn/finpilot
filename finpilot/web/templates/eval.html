@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}System quality{% endblock %}
+{% block head_scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="/static/js/eval.js"></script>
+{% endblock %}
+{% block content %}
+<div x-data="evalPage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+  <div>
+    <h1 class="text-2xl font-semibold">System quality</h1>
+    <p class="text-sm text-muted max-w-3xl">Real, reproducible evaluations of FinPilot's agents on seeded synthetic personas (INR and USD) with known ground truth. Every number below is computed by code from stored results. Nothing here is hand-written.</p>
+  </div>
+  {% if user.role == 'admin' %}
+  <div class="flex gap-2">
+    <button type="button" @click="runEval('offline')" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm">Run offline eval</button>
+    <button type="button" @click="runEval('full')" class="rounded-lg bg-brand-600 text-white px-3 py-2 text-sm" title="Uses Mesh (costs a few cents)">Run full eval (LLM)</button>
+  </div>
+  {% endif %}
+</div>
+<p x-show="msg" x-text="msg" class="mb-3 text-sm text-accent" role="status"></p>
+
+{% if not run %}
+<div class="text-center rounded-2xl ring-1 ring-dashed ring-slate-300 dark:ring-slate-700 py-16 text-muted">No evaluation runs yet. {% if user.role == 'admin' %}Start one with the buttons above, or run <code>make eval-offline</code>.{% endif %}</div>
+{% else %}
+{% set H = run.summary_json.headline or {} %}
+{% set P = (run.previous.headline if run.previous else {}) or {} %}
+<form method="get" class="mb-4 flex flex-wrap gap-2 items-center text-sm">
+  <label for="run-select" class="text-muted">Run</label>
+  <select id="run-select" name="run" onchange="this.form.submit()" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+    {% for r in runs %}<option value="{{ r.id }}" {{ 'selected' if r.id == run.id }}>{{ r.started_at.strftime('%d %b %H:%M') }} · {{ r.mode }} · {{ r.status }}{% if r.git_sha %} · {{ r.git_sha }}{% endif %}</option>{% endfor %}
+  </select>
+</form>
+
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6 text-sm flex flex-wrap gap-x-8 gap-y-2" aria-label="Run details">
+  <div><span class="text-muted">Status</span> <span class="badge ml-1 {{ {'passed':'bg-emerald-100 dark:bg-emerald-900/40 text-pos','failed':'bg-rose-100 dark:bg-rose-900/40 text-neg','error':'bg-rose-100 text-neg'}.get(run.status, 'bg-amber-100 dark:bg-amber-900/40 text-amber-800') }}">{{ run.status }}</span></div>
+  <div><span class="text-muted">Mode</span> {{ run.mode }} {{ '(rules + memory, no LLM)' if run.mode == 'offline' else '(full pipeline via Mesh)' }}</div>
+  <div><span class="text-muted">Commit</span> <code>{{ run.git_sha or 'n/a' }}</code></div>
+  <div><span class="text-muted">Models</span> {{ run.models_json.fast }}</div>
+  <div><span class="text-muted">Prompt</span> <code>{{ run.prompt_versions_json.get('categorizer/classify', 'n/a') }}</code></div>
+  <div><span class="text-muted">Trigger</span> {{ run.trigger }}</div>
+  {% if user.role == 'admin' and run.langfuse_run_urls_json.categorization %}<a class="text-accent hover:underline" href="{{ run.langfuse_run_urls_json.categorization }}" target="_blank" rel="noopener">Open in Langfuse ↗</a>{% endif %}
+</section>
+
+{% set TABS = [("overview", "Overview")] + suites + [("failures", "Failures"), ("compare", "Compare runs")] %}
+<div role="tablist" aria-label="Evaluation sections" class="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+  {% for key, label in TABS %}
+  <button type="button" role="tab" id="tab-{{ key }}" aria-controls="panel-{{ key }}" :aria-selected="(tab === '{{ key }}').toString()" :tabindex="tab === '{{ key }}' ? 0 : -1"
+    @click="show('{{ key }}')" @keydown.right.prevent="step(1)" @keydown.left.prevent="step(-1)" class="-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm"
+    :class="tab === '{{ key }}' ? 'border-brand-600 text-accent font-medium' : 'border-transparent text-soft hover:text-slate-900 dark:hover:text-white'">{{ label }}{% if key not in ('overview', 'failures', 'compare') %}{% set cc = (run.case_counts|selectattr('suite', 'equalto', key)|list) %}{% if cc and cc[0].failed %} <span class="ml-1 rounded-full bg-rose-100 dark:bg-rose-900/40 px-1.5 text-[11px] text-neg">{{ cc[0].failed }}</span>{% endif %}{% endif %}</button>
+  {% endfor %}
+</div>
+
+<div role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" x-show="tab === 'overview'">
+{% set gates = run.summary_json.get('gates', []) %}
+<div class="grid lg:grid-cols-3 gap-6 mb-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 lg:col-span-2" aria-labelledby="trend-h">
+    <h2 id="trend-h" class="font-semibold mb-1">Trend across {{ run.mode }} runs</h2>
+    <p class="text-xs text-muted mb-2">Key metrics of the latest runs of this mode, oldest to newest.</p>
+    <div class="h-64"><canvas id="trend-chart" role="img" aria-label="Key evaluation metrics across recent runs"></canvas></div>
+  </section>
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="gates-h">
+    <h2 id="gates-h" class="font-semibold mb-1">Quality gates</h2>
+    {% set gp = gates|selectattr('passed')|list|length %}
+    <p class="text-sm mb-3">{% if gates %}<strong class="{{ 'text-pos' if gp == gates|length else 'text-neg' }}">{{ gp }} / {{ gates|length }}</strong> passed{% else %}<span class="text-muted">No gates for this run.</span>{% endif %}</p>
+    <ul class="space-y-1 text-xs max-h-56 overflow-y-auto" tabindex="0" aria-label="Gate results">
+      {% for gt in gates|sort(attribute='passed') %}<li class="flex justify-between gap-2"><span class="truncate">{{ gt.metric }}</span><span class="{{ 'text-pos' if gt.passed else 'text-neg font-semibold' }} whitespace-nowrap">{{ '%.3g'|format(gt.value) if gt.value is not none else '—' }} {{ '✓' if gt.passed else '✗' }}</span></li>{% endfor %}
+    </ul>
+  </section>
+</div>
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="insights-h">
+    <h3 id="insights-h" class="font-semibold mb-2">Insights</h3>
+    <ul class="space-y-2 text-sm max-h-80 overflow-y-auto" tabindex="0">
+      {% for i in run.insights %}
+      <li class="rounded-lg p-2 {{ {'critical':'bg-rose-50 dark:bg-rose-900/30','warning':'bg-amber-50 dark:bg-amber-900/20','info':'bg-slate-50 dark:bg-slate-800'}[i.severity] }}">
+        <div class="font-medium">{{ i.title }}</div><div class="text-soft">{{ i.body }}</div></li>
+      {% else %}<li class="text-muted">No findings: all gates passed and nothing regressed.</li>{% endfor %}
+    </ul>
+  </section>
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="suites-h">
+    <h2 id="suites-h" class="font-semibold mb-2">Suites in this run</h2>
+    <table class="w-full text-sm"><thead class="eyebrow text-left"><tr><th class="py-1">Suite</th><th class="text-right">Cases</th><th class="text-right">Failing</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for key, label in suites %}{% set cc = (run.case_counts|selectattr('suite', 'equalto', key)|list) %}{% if cc %}<tr><td class="py-1.5"><button type="button" class="text-accent hover:underline" @click="show('{{ key }}')">{{ label }}</button></td><td class="text-right">{{ cc[0].total }}</td><td class="text-right {{ 'text-neg font-semibold' if cc[0].failed }}">{{ cc[0].failed }}</td></tr>{% endif %}{% endfor %}</tbody></table>
+  </section>
+</div>
+</div>
+
+<div role="tabpanel" id="panel-categorization" aria-labelledby="tab-categorization" x-show="tab === 'categorization'" x-cloak>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  {% for key, label, hint in kpis %}
+  {% set v = H.get(key) %}{% set pv = P.get(key) %}
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4" title="{{ hint }}">
+    <div class="eyebrow">{{ label }}</div>
+    <div class="mt-1 text-2xl font-semibold">{{ '%.1f%%'|format(v * 100) if v is not none else '—' }}</div>
+    {% if v is not none and pv is not none %}{% set dlt = (v - pv) * 100 %}
+    <div class="text-xs {{ 'text-pos' if dlt >= 0 else 'text-neg' }}">{{ '▲' if dlt >= 0 else '▼' }} {{ '%.1f'|format(dlt|abs) }} pts vs previous {{ run.mode }} run</div>
+    {% else %}<div class="text-xs text-muted">{{ hint }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="layers-h">
+    <h3 id="layers-h" class="font-semibold mb-2">Layer ablation</h3>
+    <table class="w-full text-sm">
+      <thead class="eyebrow text-left"><tr><th class="py-1">Variant</th><th class="text-right">Accuracy</th><th class="text-right">Coverage</th><th class="text-right">Precision when answering</th><th class="text-right">Macro-F1</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for v, label in [("rules","Rules only"),("rules_memory","+ Merchant memory"),("full","+ LLM via Mesh")] %}{% set m = cat.variants.get(v) %}{% if m %}
+        <tr><td class="py-1.5">{{ label }}</td><td class="text-right">{{ '%.1f%%'|format(m.accuracy * 100) }}</td><td class="text-right">{{ '%.1f%%'|format(m.coverage * 100) }}</td><td class="text-right">{{ '%.1f%%'|format(m.precision_resolved * 100) }}</td><td class="text-right">{{ '%.3f'|format(m.macro_f1) }}</td></tr>
+      {% endif %}{% endfor %}
+      </tbody>
+    </table>
+    <p class="text-xs text-muted mt-2">{{ cat.n_cases|int }} transactions across {{ personas|length }} personas; rows the simulated user labelled are excluded. Unresolved rows count as wrong for accuracy.</p>
+    <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
+      {% for k, label in [("unseen_merchant_accuracy","Unseen merchants"),("ambiguous_accuracy","Ambiguous merchants"),("custom_category_recall","Custom categories"),("injection_safe","Prompt-injection safe")] %}
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.1f%%'|format(H[ 'categorization.' ~ k ] * 100) if H.get('categorization.' ~ k) is not none else '—' }}</dd></div>
+      {% endfor %}
+      {% for m in cost %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ m.label }}</dt><dd class="font-semibold">{{ m.text }}</dd></div>{% endfor %}
+    </dl>
+  </section>
+</div>
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5"><h3 class="font-semibold mb-2">Calibration (primary variant)</h3>
+    <div class="h-56"><canvas id="calibration-chart" role="img" aria-label="Accuracy vs mean confidence per confidence bucket"></canvas></div></section>
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5"><h3 class="font-semibold mb-2">Accuracy by persona</h3>
+    <div class="h-56"><canvas id="persona-chart" role="img" aria-label="Accuracy per persona"></canvas></div></section>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="percat-h">
+    <h3 id="percat-h" class="font-semibold mb-2">Per category (worst first)</h3>
+    <div class="max-h-96 overflow-y-auto" tabindex="0"><table class="w-full text-xs">
+      <thead class="eyebrow text-left sticky top-0 bg-white dark:bg-slate-900"><tr><th class="py-1">Category</th><th class="text-right">Precision</th><th class="text-right">Recall</th><th class="text-right">F1</th><th class="text-right">n</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for c in cat.per_category %}<tr><td class="py-1">{{ c.category|replace('_', ' ') }}</td><td class="text-right">{{ '%.2f'|format(c.precision) }}</td><td class="text-right">{{ '%.2f'|format(c.recall) }}</td><td class="text-right {{ 'text-neg font-semibold' if c.f1 < 0.6 }}">{{ '%.2f'|format(c.f1) }}</td><td class="text-right">{{ c.support|int }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="conf-h">
+    <h3 id="conf-h" class="font-semibold mb-2">Top confusions</h3>
+    <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">True</th><th>Predicted</th><th class="text-right">Count</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for c in cat.confusions %}<tr><td class="py-1">{{ c.true|replace('_', ' ') }}</td><td>{{ 'unresolved' if c.pred == '∅' else c.pred|replace('_', ' ') }}</td><td class="text-right">{{ c.count }}</td></tr>{% endfor %}</tbody></table>
+  </section>
+</div>
+</div>
+
+<div role="tabpanel" id="panel-anomalies" aria-labelledby="tab-anomalies" x-show="tab === 'anomalies'" x-cloak>
+{% if ana or recur %}
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  {% if ana %}
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="ana-h">
+    <h3 id="ana-h" class="font-semibold mb-2">Anomalies vs injected ground truth</h3>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+      {% for k, label, pct in [("precision","Precision",1),("recall","Recall (material)",1),("f1","F1",0),("fp_per_month_clean","False alarms / month (clean)",0),("heldout_precision","Held-out precision",1),("heldout_recall","Held-out recall",1),("heldout_fp_per_month_clean","Held-out false alarms / month",0)] %}{% set v = H.get('anomalies.' ~ k) %}
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ ('%.1f%%'|format(v * 100) if pct else '%.2f'|format(v)) if v is not none else '—' }}</dd></div>
+      {% endfor %}
+    </dl>
+    <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">Type</th><th class="text-right">Injected (material)</th><th class="text-right">Found</th><th class="text-right">Precision</th><th class="text-right">Recall</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for t in ana.per_type %}<tr><td class="py-1">{{ t.type|replace('_', ' ') }}</td><td class="text-right">{{ t.truth }} ({{ t.truth_material }})</td><td class="text-right">{{ t.detected_material }}</td><td class="text-right">{{ '%.2f'|format(t.precision) }}</td><td class="text-right">{{ '%.2f'|format(t.recall) }}</td></tr>{% endfor %}</tbody></table>
+    <p class="text-xs text-muted mt-2">Material = above the per-currency anomaly floor (smaller ones are ignored by design). False alarms are counted on clean copies of every persona with nothing injected ({{ ana.clean.false_positives }} in {{ ana.clean.months }} persona-months).</p>
+  </section>
+  {% endif %}
+  {% if recur %}
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="rec-h">
+    <h3 id="rec-h" class="font-semibold mb-2">Recurring detection &amp; materializer</h3>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+      {% for k, label, fmt in [("precision","Precision","pct"),("recall","Recall","pct"),("period_accuracy","Period accuracy","pct"),("next_date_within_3d","Next date ±3 days","pct"),("next_date_mae_days","Next-date error (days)","num"),("amount_mape","Amount error","pct"),("materializer_correct","Materializer correct","pct"),("materializer_idempotent","Materializer idempotent","pct")] %}{% set v = H.get('recurring.' ~ k) %}
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ ('%.1f%%'|format(v * 100) if fmt == 'pct' else '%.2f'|format(v)) if v is not none else '—' }}</dd></div>
+      {% endfor %}
+    </dl>
+    <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">Persona</th><th class="text-right">Eligible series</th><th class="text-right">Detected</th><th class="text-right">F1</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for p in recur.per_persona %}<tr><td class="py-1">{{ p.persona }}</td><td class="text-right">{{ p.eligible }}</td><td class="text-right">{{ p.detected }}</td><td class="text-right">{{ '%.2f'|format(p.f1) }}</td></tr>{% endfor %}</tbody></table>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+{% if not ana %}<p class="text-sm text-muted">No anomaly results in this run.</p>{% endif %}
+</div>
+<div role="tabpanel" id="panel-recurring" aria-labelledby="tab-recurring" x-show="tab === 'recurring'" x-cloak>
+<p class="text-sm text-muted">Recurring-detection results are shown next to anomalies (deterministic in both modes).</p>
+<button type="button" class="text-accent hover:underline text-sm" @click="show('anomalies')">Open detection results</button>
+</div>
+
+<div role="tabpanel" id="panel-forecast" aria-labelledby="tab-forecast" x-show="tab === 'forecast' || tab === 'simulation'" x-cloak>
+{% if fcast or simu %}
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+  {% if fcast %}
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="fb-h">
+    <h3 id="fb-h" class="font-semibold mb-2">Forecast backtest ({{ fcast.origins }} rolling origins, 90 days)</h3>
+    <dl class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+      {% for k, label in [("coverage_daily","Days inside p10–p90 (target 80%)"),("skill_vs_trailing_mean","Better than trailing mean"),("skill_vs_last_month","Better than last month"),("sparse_ok","Sparse data handled")] %}{% set v = H.get('forecast.' ~ k) %}
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.1f%%'|format(v * 100) if v is not none else '—' }}</dd></div>
+      {% endfor %}
+    </dl>
+    <table class="w-full text-xs mb-3"><thead class="eyebrow text-left"><tr><th class="py-1">Horizon</th><th class="text-right">Error: model</th><th class="text-right">Trailing mean</th><th class="text-right">Last month</th><th class="text-right">In band</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for h in fcast.per_horizon %}<tr><td class="py-1">{{ h.horizon }} days</td><td class="text-right font-semibold">{{ '%.2f'|format(h.model) }}</td><td class="text-right">{{ '%.2f'|format(h.trailing_mean) }}</td><td class="text-right">{{ '%.2f'|format(h.last_month) }}</td><td class="text-right">{{ '%.0f%%'|format(h.coverage * 100) }}</td></tr>{% endfor %}</tbody></table>
+    <p class="text-xs text-muted mb-2">Error = |median forecast − actual balance| ÷ the persona's average monthly spend.{% if fcast.chart %} Chart: {{ fcast.chart.persona|replace('_', ' ') }} from {{ fcast.chart.origin }}.{% endif %}</p>
+    <div class="h-56"><canvas id="backtest-chart" role="img" aria-label="Predicted versus actual balance for one backtest origin"></canvas></div>
+  </section>
+  {% endif %}
+  {% if simu %}
+  <section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="sim-h">
+    <h3 id="sim-h" class="font-semibold mb-2">What-if simulator</h3>
+    <table class="w-full text-xs mb-3"><thead class="eyebrow text-left"><tr><th class="py-1">Property</th><th class="text-right">Checks</th><th class="text-right">Held</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for k, v in simu.properties.items() %}<tr><td class="py-1">{{ k|replace('_', ' ') }}</td><td class="text-right">{{ v.checks }}</td><td class="text-right {{ 'text-neg font-semibold' if v.passed|int < v.checks|int }}">{{ v.passed }}</td></tr>{% endfor %}</tbody></table>
+    {% for r in simu.historical %}<p class="text-xs text-soft mb-1">Real one-off purchase ({{ r.persona|replace('_', ' ') }}, {{ r.date }}): reality inside the band on {{ '%.0f%%'|format(r.coverage_scenario * 100) }} of days with the what-if vs {{ '%.0f%%'|format(r.coverage_baseline * 100) }} without it.</p>{% endfor %}
+    {% if simu.nl %}<dl class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+      {% for k, label in [("nl_intent_accuracy","NL intent"),("nl_slot_accuracy","NL slots"),("nl_clarification_accuracy","Asks when missing"),("nl_exact","Fully right")] %}
+      <div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.0f%%'|format(simu.nl[k] * 100) }}</dd></div>{% endfor %}
+    </dl>{% else %}<p class="text-xs text-muted mt-2">NL parsing is measured in full runs only (Mesh).</p>{% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+</div>
+<div role="tabpanel" id="panel-simulation" aria-labelledby="tab-simulation" hidden></div>
+
+<div role="tabpanel" id="panel-advisor" aria-labelledby="tab-advisor" x-show="tab === 'advisor'" x-cloak>
+{% if advi %}
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="adv-h">
+  <h3 id="adv-h" class="sr-only">Advisor metrics</h3>
+  <dl class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs mb-3">
+    {% for k, label in [("pct_with_finding","Cite a finding"),("pct_specific","Specific"),("pct_grounded","All numbers grounded"),("grounding_first_attempt_pass_rate","Grounded first try"),("fallback_rate","Fell back to template"),("judge_overall","Judge (overall)"),("personas_distinct_top","Personas with own top advice"),("dismissed_not_repeated","Dismissed not repeated"),("guard_detection_rate","Guard catches corrupted numbers"),("guard_clean_pass_rate","Guard passes clean text")] %}{% set v = H.get('advisor.' ~ k) %}
+    {% if v is not none %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.0f%%'|format(v * 100) }}</dd></div>{% endif %}
+    {% endfor %}
+  </dl>
+  <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">Persona</th><th>Top recommendation</th><th class="text-right">Candidates</th><th class="text-right">Wording</th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for p in advi.per_persona %}<tr><td class="py-1">{{ p.persona|replace('_', ' ') }}</td><td>{{ (p.top or '—').split(':')[0]|replace('_', ' ') }}</td><td class="text-right">{{ p.candidates }}</td><td class="text-right">{{ 'LLM' if p.generated_by == 'llm' else 'template' }}</td></tr>{% endfor %}</tbody></table>
+  {% if advi.judge %}<p class="mt-2 text-xs text-muted">Judge rationales are in the failures explorer and in Langfuse. Rubric: <code>prompts/eval_judge/advice.v1.md</code>.</p>{% endif %}
+</section>
+{% endif %}
+{% if not advi %}<p class="text-sm text-muted">No advisor results in this run.</p>{% endif %}
+</div>
+
+<div role="tabpanel" id="panel-cache" aria-labelledby="tab-cache" x-show="tab === 'cache'" x-cloak>
+{% if cache %}
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="cache-h">
+  <h3 id="cache-h" class="sr-only">Cache metrics</h3>
+  <dl class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs mb-3">
+    {% for k, label in [("hit_rate","Hit rate (cacheable)"),("invalidation_correct","Invalidated after writes"),("cross_user_isolation","Cross-user isolation"),("router_accuracy","Router accuracy"),("degraded_share","Degraded answers")] %}{% set v = H.get('cache.' ~ k) %}
+    {% if v is not none %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.0f%%'|format(v * 100) }}</dd></div>{% endif %}
+    {% endfor %}
+  </dl>
+  <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">Layer</th><th class="text-right">Answers</th><th class="text-right">p50 (ms)</th><th class="text-right">p95 (ms)</th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for layer in ['L2', 'L3', 'miss', 'none'] %}{% set l = cache.latency.get(layer) %}{% if l %}<tr><td class="py-1">{{ {'L2': 'L2 exact answer', 'L3': 'L3 semantic', 'miss': 'computed (miss)', 'none': 'not cacheable'}[layer] }}</td><td class="text-right">{{ l.n }}</td><td class="text-right">{{ '%.0f'|format(l.p50) }}</td><td class="text-right">{{ '%.0f'|format(l.p95) }}</td></tr>{% endif %}{% endfor %}</tbody></table>
+  <p class="mt-2 text-xs text-muted">{{ cache.questions }} questions, writes at {{ cache.writes_at|join(' and ') }}. Router: {{ cache.router.correct }}/{{ cache.router.total }} phrasings ({% for k, v in cache.router.by_layer.items() %}{{ k }} {{ v }}{{ ', ' if not loop.last }}{% endfor %}).</p>
+</section>
+{% endif %}
+{% if not cache %}<p class="text-sm text-muted">No cache results in this run.</p>{% endif %}
+</div>
+
+<div role="tabpanel" id="panel-memory" aria-labelledby="tab-memory" x-show="tab === 'memory'" x-cloak>
+{% if memo %}
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="memo-h">
+  <h3 id="memo-h" class="sr-only">Memory metrics</h3>
+  <dl class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs mb-3">
+    {% for k, label in [("hit_at_1","Recall hit@1"),("hit_at_5","Recall hit@5"),("supersede_correct","Contradictions replaced"),("deletion_removes_recall","Deleted = forgotten"),("blocked_rejected","Sensitive data rejected"),("cross_user_isolation","Cross-user isolation"),("writer_recall","Writer found expected"),("writer_precision","Writer precision"),("chat_grounded","Chat answers verified"),("chat_fallback_rate","Chat fallbacks")] %}{% set v = H.get('memory.' ~ k) %}
+    {% if v is not none %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold">{{ '%.0f%%'|format(v * 100) }}</dd></div>{% endif %}
+    {% endfor %}
+  </dl>
+  <p class="text-xs text-muted">Retrieval: {{ 'Mesh embeddings' if memo.retrieval == 'vector' else 'lexical (no Mesh)' }} · {{ memo.questions }} questions over {{ memo.facts }} facts{% if memo.chat %} · chat routes: {% for k, v in memo.chat.routes.items() %}{{ k }} {{ v }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}.</p>
+</section>
+{% endif %}
+{% if not memo %}<p class="text-sm text-muted">No memory results in this run.</p>{% endif %}
+</div>
+
+<div role="tabpanel" id="panel-fx" aria-labelledby="tab-fx" x-show="tab === 'fx'" x-cloak>
+{% if fxd %}
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="fx-h">
+  <h2 id="fx-h" class="font-semibold mb-1">FX &amp; MCP</h2>
+  <p class="text-sm text-muted mb-3">Currency conversion against a fixed reference table, the fallback chain (FX MCP server, then direct HTTP, then stored rates, then pinned rates), the MCP contract and its safety (allowlist, circuit breaker), grounding of converted amounts, and foreign-currency exposure. No network: the MCP server runs in-process.</p>
+  <dl class="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs mb-4">
+    {% for k, label in [("conversion_accuracy","Conversions exact"),("round_trip_within_0_01","USD→INR→USD round trip"),("date_resolution","Weekend / holiday dates"),("fallback_chain","Fallback chain"),("mcp_contract","MCP contract"),("allowlist_enforced","Allowlist before I/O"),("circuit_breaker","Circuit breaker"),("grounding_converted_detection","Wrong conversions caught"),("grounding_converted_clean_pass","Right conversions pass"),("fx_exposure_correct","FX exposure correct")] %}{% set v = H.get('fx.' ~ k) %}
+    {% if v is not none %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold {{ 'text-neg' if v < 1 }}">{{ '%.0f%%'|format(v * 100) }}</dd></div>{% endif %}
+    {% endfor %}
+  </dl>
+  {% if fxd.fallback %}
+  <h3 class="text-sm font-semibold mb-1">Fallback chain</h3>
+  <table class="w-full text-xs"><thead class="eyebrow text-left"><tr><th class="py-1">Scenario</th><th>Rate source (flags)</th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">{% for k, v in fxd.fallback.items() %}<tr><td class="py-1">{{ k|replace('_', ' ') }}</td><td>{{ v }}</td></tr>{% endfor %}</tbody></table>
+  {% endif %}
+</section>
+{% else %}<p class="text-sm text-muted">This run did not include the FX &amp; MCP suite.</p>{% endif %}
+</div>
+
+<div role="tabpanel" id="panel-guardrails" aria-labelledby="tab-guardrails" x-show="tab === 'guardrails'" x-cloak>
+{% if guard %}
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="gr-h">
+  <h2 id="gr-h" class="font-semibold mb-1">Guardrails</h2>
+  <p class="text-sm text-muted mb-3">Identifiers ({{ guard.entities|length }} kinds) are masked with Presidio before anything reaches Mesh or Langfuse; answers that contain one are blocked; chat and advice never give investment, tax or legal directives; untrusted text stays inside &lt;data&gt; blocks. {{ guard.pii_cases }} masking cases, {{ guard.answers }} answers, {{ guard.directives }} advice sentences.</p>
+  <dl class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+    {% for k, label, good_high in [("pii_mask_recall","Identifiers masked",true),("pii_false_mask_rate","Figures wrongly masked",false),("leak_detection_rate","Leaking answers blocked",true),("leak_clean_pass_rate","Clean answers passed",true),("directive_detection_rate","Directives flagged",true),("directive_clean_pass_rate","FinPilot levers passed",true),("injection_contained","Injection kept in <data>",true)] %}
+    {% set v = (run.summary_json.headline or {}).get('guardrails.' ~ k) %}
+    {% if v is not none %}<div class="rounded-lg bg-slate-50 dark:bg-slate-800 p-2"><dt class="text-muted">{{ label }}</dt><dd class="font-semibold {{ 'text-neg' if (v < 1 if good_high else v > 0) }}">{{ '%.0f%%'|format(v * 100) }}</dd></div>{% endif %}
+    {% endfor %}
+  </dl>
+</section>
+{% else %}<p class="text-sm text-muted">This run did not include the Guardrails suite.</p>{% endif %}
+</div>
+
+<div role="tabpanel" id="panel-failures" aria-labelledby="tab-failures" x-show="tab === 'failures'" x-cloak>
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="fail-h">
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-2">
+    <h2 id="fail-h" class="font-semibold">Failures explorer <span class="text-sm font-normal text-muted" x-text="'(' + total + ')'"></span></h2>
+    <form @submit.prevent="loadCases" class="flex flex-wrap gap-2 text-sm">
+      <label class="sr-only" for="fail-suite">Suite</label>
+      <select id="fail-suite" x-model="suite" @change="loadCases" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1">
+        {% for key, label in suites %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
+      <input x-model="filter" placeholder="Search cases" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1" aria-label="Search cases">
+      <label class="flex items-center gap-1 text-soft"><input type="checkbox" x-model="all" @change="loadCases"> include passing</label>
+      <button class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3">Filter</button>
+    </form>
+  </div>
+  <div class="max-h-[32rem] overflow-y-auto" tabindex="0" aria-label="Cases"><table class="w-full text-xs">
+    <thead class="eyebrow text-left sticky top-0 bg-white dark:bg-slate-900"><tr><th class="py-1">Case</th><th>Expected</th><th>Got</th><th>Result</th><th><span class="sr-only">Trace</span></th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 align-top">
+      <template x-for="c in cases" :key="c.case_id"><tr>
+        <td class="py-1.5 pr-3 font-mono break-all" x-text="brief(c.input, c.case_id)"></td>
+        <td class="pr-3 break-words" x-text="brief(c.expected)"></td>
+        <td class="pr-3 break-words" :class="c.passed ? '' : 'text-neg'" x-text="brief(c.actual)"></td>
+        <td class="pr-3 whitespace-nowrap" :class="c.passed ? 'text-pos' : 'text-neg'" x-text="c.passed ? 'passed' : (c.error_type || 'failed')"></td>
+        <td>{% if user.role == 'admin' %}<a x-show="c.langfuse_trace_id" :href="'{{ langfuse_base }}/traces/' + c.langfuse_trace_id" target="_blank" rel="noopener" class="text-accent">trace ↗</a>{% endif %}</td>
+      </tr></template>
+    </tbody></table>
+    <p x-show="!loading && !cases.length" class="text-sm text-muted py-4">No cases match.</p>
+  </div>
+</section>
+</div>
+
+<div role="tabpanel" id="panel-compare" aria-labelledby="tab-compare" x-show="tab === 'compare'" x-cloak>
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="cmp-h">
+  <h2 id="cmp-h" class="font-semibold mb-2">Compare two runs</h2>
+  <form @submit.prevent="compare" class="flex flex-wrap items-center gap-2 text-sm mb-4">
+    {% for side, lab in [("A", "Baseline"), ("B", "Candidate")] %}
+    <label class="text-muted" for="cmp-{{ side }}">{{ lab }}</label>
+    <select id="cmp-{{ side }}" x-model="cmp{{ side }}" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+      {% for r in runs %}<option value="{{ r.id }}">{{ r.started_at.strftime('%d %b %H:%M') }} · {{ r.mode }}{% if r.git_sha %} · {{ r.git_sha }}{% endif %}</option>{% endfor %}
+    </select>{% endfor %}
+    <button class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5">Compare</button>
+    <label class="flex items-center gap-1 text-soft"><input type="checkbox" x-model="changedOnly"> changed only</label>
+  </form>
+  <div x-show="diff.length" class="max-h-[32rem] overflow-y-auto" tabindex="0" aria-label="Metric comparison"><table class="w-full text-xs">
+    <thead class="eyebrow text-left sticky top-0 bg-white dark:bg-slate-900"><tr><th class="py-1">Metric</th><th class="text-right">Baseline</th><th class="text-right">Candidate</th><th class="text-right">Change</th></tr></thead>
+    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      <template x-for="m in shownDiff()" :key="m.metric"><tr>
+        <td class="py-1 pr-2 break-all" x-text="m.metric"></td>
+        <td class="text-right" x-text="num(m.a)"></td><td class="text-right" x-text="num(m.b)"></td>
+        <td class="text-right font-medium" :class="tone(m)" x-text="m.delta === null ? '—' : (m.delta > 0 ? '+' : '') + num(m.delta)"></td>
+      </tr></template>
+    </tbody></table></div>
+  <p x-show="!diff.length" class="text-sm text-muted">Pick two runs (ideally of the same mode) and press Compare. Green is better, red is worse; lower-is-better metrics (errors, latency) are handled.</p>
+</section>
+</div>
+
+<script type="application/json" id="fp-eval">{{ chart|tojson }}</script>
+{% endif %}
+</div>
+{% endblock %}

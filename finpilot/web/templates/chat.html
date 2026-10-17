@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Chat{% endblock %}
+{% block head_scripts %}<script src="/static/js/chat.js"></script>{% endblock %}
+{% block content %}
+{% from "partials/icons.html" import icon %}
+<script type="application/json" id="chat-state">{{ chat_state|tojson }}</script>
+<div x-data="chatPage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Chat</h1>
+    <p class="text-sm text-muted max-w-3xl">Ask anything about your money. FinPilot looks the numbers up in your own data and checks every figure before it answers; common questions are answered instantly from your latest analysis.</p>
+  </div>
+  <div class="flex gap-2 text-sm">
+    <a href="/app/memory" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">What FinPilot remembers</a>
+    <a href="/app/chat" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3 py-2">New chat</a>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-4 gap-6">
+  <nav class="lg:col-span-1 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4 h-fit" aria-labelledby="conv-h">
+    <h2 id="conv-h" class="font-semibold mb-2 text-sm">Conversations</h2>
+    {% if sessions %}
+    <ul class="space-y-1 text-sm">
+      {% for c in sessions %}
+      <li class="group relative">
+        <a href="/app/chat?session={{ c.id }}" class="block rounded px-2 py-1.5 pr-8 hover:bg-slate-100 dark:hover:bg-slate-800 truncate {{ 'bg-slate-100 dark:bg-slate-800 font-medium' if current and current.id == c.id }}">{{ c.title or 'Conversation' }}<span class="block text-xs text-muted">{{ c.last_message_at.strftime('%d %b %H:%M') }} · {{ c.messages }} messages</span></a>
+        <button type="button" @click='deleteSession({{ c.id|string|tojson }})' class="absolute right-1 top-1.5 rounded p-1 text-muted opacity-0 hover:text-neg hover:bg-slate-200 dark:hover:bg-slate-700 focus:opacity-100 group-hover:opacity-100" aria-label="Delete conversation: {{ c.title or 'Conversation' }}" title="Delete conversation">{{ icon("x", "h-4 w-4") }}</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-muted">No conversations yet.</p>{% endif %}
+  </nav>
+
+  <section class="lg:col-span-3 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 flex flex-col min-h-[28rem]" aria-labelledby="msgs-h">
+    <h2 id="msgs-h" class="sr-only">Messages</h2>
+    <div class="flex-1 space-y-4 mb-4" id="chat-log" aria-live="polite">
+      <template x-if="messages.length === 0">
+        <div>
+          <p class="text-sm text-muted mb-3">Try one of these:</p>
+          <div class="flex flex-wrap gap-2">
+            {% for q in ["How much did I spend on dining in the last 3 months?", "Where can I save more?", "Can I afford a ₹50,000 phone next month?", "What's 200 dollars in rupees?", "Am I on track with my goals?", "Which subscriptions should I review?"] %}
+            <button type="button" @click='send({{ q|tojson }})' :disabled="busy" class="rounded-full ring-1 ring-brand-200 dark:ring-slate-700 bg-brand-50 dark:bg-slate-800 hover:bg-brand-100 dark:hover:bg-slate-700 px-3 py-1.5 text-sm">{{ q }}</button>
+            {% endfor %}
+          </div>
+        </div>
+      </template>
+      <template x-for="m in messages" :key="m.id">
+        <div :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+          <div :class="m.role === 'user' ? 'max-w-[85%] rounded-2xl bg-brand-600 text-white px-4 py-2 text-sm' : 'max-w-[85%] rounded-2xl bg-slate-50 dark:bg-slate-800/60 px-4 py-3 text-sm'">
+            <p class="whitespace-pre-line" x-text="m.content"></p>
+            <template x-if="m.role === 'assistant'">
+              <div class="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+                <span class="italic" x-text="badge(m)"></span>
+                <span x-show="m.tools && m.tools.length" x-text="'Tools: ' + (m.tools || []).join(', ').replaceAll('_', ' ')"></span>
+                <span class="flex gap-1" x-show="m.id && !String(m.id).startsWith('tmp')">
+                  <button type="button" @click="rate(m, 'up')" :aria-pressed="m.feedback === 'up'" :class="m.feedback === 'up' ? 'text-pos' : ''" class="hover:text-pos" aria-label="Helpful">👍</button>
+                  <button type="button" @click="rate(m, 'down')" :aria-pressed="m.feedback === 'down'" :class="m.feedback === 'down' ? 'text-neg' : ''" class="hover:text-neg" aria-label="Not helpful">👎</button>
+                </span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+      <p x-show="busy" x-cloak style="display:none" class="text-sm text-muted italic" x-text="progress || 'Thinking…'"></p>
+    </div>
+    <div x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="mb-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+    <form @submit.prevent="send(q)" class="flex gap-2">
+      <label for="chat-q" class="sr-only">Your question</label>
+      <input id="chat-q" x-model="q" maxlength="2000" autocomplete="off" placeholder="Ask about your spending, bills, goals or a purchase…" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+      <button class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm" :disabled="busy">Send</button>
+    </form>
+  </section>
+</div>
+</div>
+{% endblock %}

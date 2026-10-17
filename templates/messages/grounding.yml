@@ -1,0 +1,6 @@
+# Grounding-guard retry instruction (sent as a user message after a failed check).
+retry: >-
+  Your previous answer did not pass FinPilot's checks: {% for p in problems %}{{ p }}{{ '; ' if not loop.last else '.' }}{% endfor %}
+  Use only numbers, amounts and dates that appear in FACTS, written as given there (you may round
+  to whole units), never convert currencies yourself, and keep naming the specific merchant,
+  category or date. Return the corrected JSON in the same format.

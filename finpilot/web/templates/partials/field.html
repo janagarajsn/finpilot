@@ -1,0 +1,31 @@
+{% macro input(name, label, type="text", value="", autocomplete=None, required=True, attrs="", help=None) -%}
+<div class="mb-4">
+  <label for="f-{{ name }}" class="block text-sm font-medium mb-1">{{ label }}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
+         {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %} {% if required %}required{% endif %} {{ attrs|safe }}
+         class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500">
+  {% if help %}<p class="text-xs text-muted mt-1">{{ help }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro error(msg) -%}
+{% if msg %}<div role="alert" class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm">{{ msg }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro notice(msg) -%}
+{% if msg %}<div role="status" class="mb-4 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-200 px-3 py-2 text-sm">{{ msg }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro submit(label) -%}
+<button type="submit" class="w-full rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500">{{ label }}</button>
+{%- endmacro %}
+
+{% macro currency_select(name, currencies, selected) -%}
+<div class="mb-4">
+  <label for="f-{{ name }}" class="block text-sm font-medium mb-1">Reporting currency</label>
+  <select id="f-{{ name }}" name="{{ name }}" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2">
+    {% for c in currencies %}<option value="{{ c.code }}" {{ 'selected' if c.code == selected }}>{{ c.code }} ({{ c.symbol }}), {{ c.name }}</option>{% endfor %}
+  </select>
+  <p class="text-xs text-muted mt-1">Dashboards, forecasts and digests are shown in this currency. You can record transactions in any supported currency.</p>
+</div>
+{%- endmacro %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "partials/finding_card.html" import finding_card %}
+{% block title %}Insights{% endblock %}
+{% block head_scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script src="/static/js/insights.js"></script>
+{% endblock %}
+{% block content %}
+{% set cur = r.reporting_currency %}
+{% set anomalies = r.by_kind('anomaly') %}
+{% set pattern_findings = (r.by_kind('pattern') + r.by_kind('trend'))|rejectattr('type', 'equalto', 'recurring_not_declared')|list %}
+{% set PER = {'weekly': 'week', 'biweekly': '2 weeks', 'monthly': 'month', 'quarterly': 'quarter', 'yearly': 'year'} %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Insights</h1>
+    <p class="text-sm text-muted max-w-3xl">Computed by code from your transactions (no AI guesses): anomalies from the last {{ (r.as_of - r.lookback_start).days + 1 }} days, recurring charges, spending patterns and currency exposure. Amounts in {{ cur }} · as of {{ r.as_of.strftime('%d %b %Y') }}{% if r.duration_ms is not none %} · computed in {{ r.duration_ms }} ms{% endif %}.</p>
+  </div>
+  <a href="/app/insights?refresh=1" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Recompute</a>
+</div>
+
+{% if r.findings %}
+<section aria-labelledby="sum-h" class="mb-6 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" x-data="insightSummary" x-init="load()">
+  <h2 id="sum-h" class="sr-only">Summary</h2>
+  <p class="text-sm" x-text="text" aria-live="polite">Writing a short summary…</p>
+  <p class="note mt-1 text-xs" x-text="note"></p>
+</section>
+{% endif %}
+{% if r.sparse %}
+<div role="status" class="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-3 text-sm">You have {{ r.months_of_data }} months of data. Baselines need about 2 months, so some insights are not shown yet.</div>
+{% endif %}
+
+<section aria-labelledby="an-h" class="mb-8">
+  <h2 id="an-h" class="text-lg font-semibold mb-3">Anomalies <span class="text-sm font-normal text-muted">({{ anomalies|length }})</span></h2>
+  {% if anomalies %}
+  <div class="grid md:grid-cols-2 gap-4">{% for f in anomalies %}{{ finding_card(f) }}{% endfor %}</div>
+  {% else %}
+  <p class="text-sm text-muted">Nothing unusual: no duplicate charges, outliers, large first-time payments or price increases above the thresholds.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="sub-h" class="mb-8">
+  <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+    <h2 id="sub-h" class="text-lg font-semibold">Subscriptions</h2>
+    {% set t = r.subscription_totals %}
+    {% if t and t.count %}<p class="text-sm text-muted">{{ t.count }} active · {{ t.monthly|money(cur) }}/month · {{ t.annual|money(cur) }}/year</p>{% endif %}
+  </div>
+  {% for f in r.by_kind('subscription') %}<div class="mb-3">{{ finding_card(f) }}</div>{% endfor %}
+  {% if r.subscriptions %}
+  <div class="overflow-x-auto rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800" tabindex="0">
+    <table class="w-full text-sm">
+      <thead class="eyebrow text-left"><tr>
+        <th class="px-4 py-2">Service</th><th class="px-4 py-2">Charge</th><th class="px-4 py-2 text-right">Per month ({{ cur }})</th>
+        <th class="px-4 py-2">Next</th><th class="px-4 py-2">Flags</th><th class="px-4 py-2">How often do you use it?</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for s in r.subscriptions %}
+      <tr class="{{ 'opacity-60' if s.status != 'active' }}">
+        <td class="px-4 py-2"><div class="font-medium">{{ s.merchant }}</div><div class="text-xs text-muted">{{ s.category_name or 'Uncategorized' }} · since {{ s.first_seen.strftime('%b %Y') }}{% if s.status != 'active' %} · no recent charge{% endif %}{% if s.declared_rule_id %} · declared{% endif %}</div></td>
+        <td class="px-4 py-2 whitespace-nowrap">{{ s.amount|money(s.currency) }} / {{ PER[s.period] }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">{{ s.monthly_cost|money(cur) }}</td>
+        <td class="px-4 py-2 whitespace-nowrap">{{ s.next_expected.strftime('%d %b') if s.status == 'active' else '—' }}</td>
+        <td class="px-4 py-2"><div class="flex flex-wrap gap-1">
+          {% if 'price_hike' in s.flags %}<span class="rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 text-xs">Price up</span>{% endif %}
+          {% if 'overlap' in s.flags %}<span class="rounded bg-sky-100 dark:bg-sky-900/40 text-sky-800 dark:text-sky-200 px-1.5 py-0.5 text-xs" title="Also: {{ s.overlap_with|join(', ') }}">Overlap</span>{% endif %}
+          {% if 'low_value_proxy' in s.flags %}<span class="rounded bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-200 px-1.5 py-0.5 text-xs">{{ 'You rated it rarely used' if s.low_value_basis == 'user_rating' else 'Likely low value (heuristic)' }}</span>{% endif %}
+        </div></td>
+        <td class="px-4 py-2">
+          <label class="sr-only" for="rate-{{ s.id }}">Usage of {{ s.merchant }}</label>
+          <select id="rate-{{ s.id }}" data-fp-rate="{{ s.id }}" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-xs">
+            <option value="" {{ 'selected' if s.usage_rating is none }}>Not rated</option>
+            {% for v, lab in [(0, 'Never'), (1, 'Rarely'), (2, 'Monthly'), (3, 'Weekly'), (4, 'Most days'), (5, 'Daily')] %}
+            <option value="{{ v }}" {{ 'selected' if s.usage_rating == v }}>{{ lab }}</option>
+            {% endfor %}
+          </select>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-muted">Subscriptions are recurring charges FinPilot detected in your history. Usage can't be seen in bank data, so nothing is called "unused" unless you rate it 0–1.</p>
+  {% else %}
+  <p class="text-sm text-muted">No recurring subscriptions detected yet (FinPilot needs at least 3 regular charges).</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="pt-h" class="mb-8">
+  <h2 id="pt-h" class="text-lg font-semibold mb-3">Patterns &amp; trends</h2>
+  {% if pattern_findings %}<div class="grid md:grid-cols-2 gap-4 mb-4">{% for f in pattern_findings %}{{ finding_card(f) }}{% endfor %}</div>{% endif %}
+  {% set pm = r.patterns %}
+  {% if not pm.get('insufficient_data') %}
+  <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4 text-sm">
+    {% set w = pm.get('weekend', {}) %}{% set pd = pm.get('payday', {}) %}{% set im = pm.get('impulse', {}) %}{% set la = pm.get('latte', {}) %}{% set co = pm.get('concentration', {}) %}
+    <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-3"><div class="eyebrow">Weekend vs weekday</div><div class="font-semibold">{{ (w.ratio ~ '×') if w.get('ratio') else '—' }}</div><div class="text-xs text-muted">Daily discretionary spend</div></div>
+    <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-3"><div class="eyebrow">After payday</div><div class="font-semibold">{{ (pd.ratio ~ '×') if pd.get('ratio') else '—' }}</div><div class="text-xs text-muted">Across {{ pd.get('paydays', 0) }} paydays</div></div>
+    <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-3"><div class="eyebrow">Impulse-type buys</div><div class="font-semibold">{{ im.get('per_week', 0) }}/week</div><div class="note text-xs">Estimate: no times of day</div></div>
+    <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-3"><div class="eyebrow">Small purchases</div><div class="font-semibold">{{ la.get('total', 0)|money(cur) }}</div><div class="text-xs text-muted">{{ la.get('share', 0) }}% of spend · ≤ {{ la.get('ceiling', 0)|money(cur) }}</div></div>
+    <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-3"><div class="eyebrow">Top discretionary</div><div class="font-semibold truncate">{{ co.get('top_category', '—') }}</div><div class="text-xs text-muted">{{ co.get('share', 0) }}% of discretionary</div></div>
+  </div>
+  {% endif %}
+  <div class="grid lg:grid-cols-2 gap-4 mb-4">
+    <div class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><h3 class="font-medium mb-2 text-sm">Weekly spend <span class="qualifier">· Last 12 weeks</span></h3><div class="h-48"><canvas id="weekly-chart" role="img" aria-label="Weekly spend chart"></canvas></div></div>
+    <div class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4"><h3 class="font-medium mb-2 text-sm">Savings rate by month</h3><div class="h-48"><canvas id="savings-chart" role="img" aria-label="Monthly savings rate chart"></canvas></div></div>
+  </div>
+  {% if r.category_trends %}
+  <div class="overflow-x-auto rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800" tabindex="0">
+    <table class="w-full text-sm">
+      <thead class="eyebrow text-left"><tr><th class="px-4 py-2">Category</th><th class="px-4 py-2 text-right">Last full month</th><th class="px-4 py-2 text-right">vs previous</th><th class="px-4 py-2 text-right">vs 3-month avg</th><th class="px-4 py-2 text-right">This month so far</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for t in r.category_trends[:12] %}
+      <tr><td class="px-4 py-2">{{ t.name }}</td><td class="px-4 py-2 text-right">{{ t.last_full_month|money(cur) }}</td>
+        {% for v in (t.mom_pct, t.vs_trailing3_pct) %}<td class="px-4 py-2 text-right {{ 'text-neg' if v and v > 0 else 'text-pos' if v and v < 0 else '' }}">{{ ('+' if v > 0 else '') ~ v ~ '%' if v is not none else '—' }}</td>{% endfor %}
+        <td class="px-4 py-2 text-right">{{ t.month_to_date|money(cur) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+{% if r.fx_exposure %}
+{% set fx = r.fx_exposure %}
+<section aria-labelledby="fx-h" class="mb-8">
+  <h2 id="fx-h" class="text-lg font-semibold mb-3">Currency exposure</h2>
+  {% for f in r.by_kind('fx_exposure') %}<div class="mb-3">{{ finding_card(f) }}</div>{% endfor %}
+  {% if fx.series %}
+  <div class="overflow-x-auto rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800" tabindex="0">
+    <table class="w-full text-sm">
+      <thead class="eyebrow text-left"><tr><th class="px-4 py-2">Recurring item</th><th class="px-4 py-2 text-right">First charge</th><th class="px-4 py-2 text-right">Latest</th><th class="px-4 py-2 text-right">From price</th><th class="px-4 py-2 text-right">From rate</th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for s in fx.series %}
+      <tr><td class="px-4 py-2"><div class="font-medium">{{ s.merchant }}</div><div class="text-xs text-muted">{{ s.orig_amount|money(s.orig_currency) }} / {{ PER[s.period] }} · {{ s.rate_first }} → {{ s.rate_last }}</div></td>
+        <td class="px-4 py-2 text-right">{{ s.first_cost|money(cur) }}</td><td class="px-4 py-2 text-right">{{ s.last_cost|money(cur) }}</td>
+        <td class="px-4 py-2 text-right">{{ s.price_effect|money(cur) }}</td><td class="px-4 py-2 text-right">{{ s.fx_effect|money(cur) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="mt-2 text-xs text-muted">Each change is split exactly into the part from the price and the part from the exchange rate, using the rates stored with each transaction.</p>
+  {% endif %}
+</section>
+{% endif %}
+<script type="application/json" id="fp-insights">{{ charts|tojson }}</script>
+{% endblock %}

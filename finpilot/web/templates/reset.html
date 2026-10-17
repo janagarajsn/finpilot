@@ -1,0 +1,13 @@
+{% extends "_auth_layout.html" %}
+{% from "partials/field.html" import input, error, notice, submit %}
+{% block title %}Choose a new password{% endblock %}
+{% block card %}
+<h1 class="text-lg font-semibold mb-4">Choose a new password</h1>
+<form id="reset-form" method="post" action="/web/reset" hx-post="/web/reset" hx-target="#reset-form" hx-select="#reset-form" hx-swap="outerHTML">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="token" value="{{ token }}">
+  {{ error(error_msg) }}
+  {{ input("new_password", "New password", "password", "", "new-password", attrs='minlength="10"', help="At least 10 characters.") }}
+  {{ submit("Update password") }}
+</form>
+{% endblock %}

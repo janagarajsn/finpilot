@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Advice{% endblock %}
+{% block head_scripts %}<script src="/static/js/advice.js"></script>{% endblock %}
+{% block content %}
+{% set rows = recs.recommendations %}
+<div x-data="advicePage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Advice</h1>
+    <p class="text-sm text-muted max-w-3xl">Up to three actions picked from options FinPilot computed from your own data. Each one cites the finding it rests on, names a specific merchant, category or date, and every number in it was checked against the computed facts. Open "Why?" to see the full trail.</p>
+  </div>
+  <button type="button" @click="refresh" :disabled="busy" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm" {% if not has_txns %}disabled{% endif %}>
+    <span x-show="!busy">{{ 'Refresh advice' if rows else 'Get advice' }}</span><span x-show="busy" x-cloak style="display:none">Thinking…</span></button>
+</div>
+<div x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+{% if recs.stale %}<div role="status" class="mb-4 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-2 text-sm">Your data changed since this advice was written. Refresh to update it.</div>{% endif %}
+{% if not has_txns %}
+<p class="text-sm text-muted">Add or import some transactions first; advice needs a few weeks of history.</p>
+{% elif not rows %}
+<p class="text-sm text-muted">No advice yet. Click "Get advice".</p>
+{% else %}
+<ol class="space-y-4">
+  {% for r in rows %}
+  <li id="rec-{{ r.id }}" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 {{ 'opacity-70' if r.status == 'accepted' }}" x-data='{ id: {{ r.id|tojson }}, open: false, trail: null, dismissing: false, reason: "" }'>
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="eyebrow">#{{ r.priority }} · {{ {'anomaly':'Unusual activity','subscription':'Subscriptions','forecast_shortfall':'Cash-flow risk','goal_gap':'Goals','pattern':'Spending pattern'}[r.trigger_kind] }}{% if r.status == 'accepted' %} · <span class="text-pos">Accepted</span>{% endif %}</div>
+        <h2 class="mt-1 text-lg font-semibold">{{ r.title }}</h2>
+      </div>
+      <div class="text-right text-sm">
+        {% if r.est_monthly_impact > 0 %}<div class="font-semibold text-pos">{{ r.est_monthly_impact|money(r.currency) }}<span class="text-xs font-normal text-muted">/month</span></div>{% endif %}
+        {% if r.est_total_impact > 0 %}<div class="text-xs text-muted">{{ r.est_total_impact|money(r.currency) }} {{ 'one-time' if r.est_monthly_impact == 0 else 'over 90 days' }}{% if r.est_monthly_impact != 0 %} <span class="italic">simulated</span>{% endif %}</div>{% endif %}
+      </div>
+    </div>
+    <p class="mt-2 font-medium">{{ r.action }}</p>
+    <p class="mt-1 text-sm text-soft">{{ r.why }}</p>
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+      {% if r.status == 'proposed' %}
+      <button type="button" @click="decide(id, 'accept')" class="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs">I'll do it</button>
+      <button type="button" @click="dismissing = !dismissing" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-1.5 text-xs">Not for me</button>
+      {% endif %}
+      <button type="button" @click="open = !open; if (open && !trail) loadTrail(id).then(t => trail = t)" class="text-accent hover:underline text-xs" :aria-expanded="open">Why?</button>
+      <span class="note text-xs">{{ 'AI-written, numbers checked' if r.generated_by == 'llm' else 'Standard wording' }}</span>
+      <span class="ml-auto flex gap-1 text-xs" aria-label="Was this useful?">
+        <button type="button" @click="feedback(id, 'up')" class="rounded px-2 py-1 {{ 'bg-emerald-100 dark:bg-emerald-900/40' if r.feedback == 'up' else 'hover:bg-slate-100 dark:hover:bg-slate-800' }}" aria-label="Useful">👍</button>
+        <button type="button" @click="feedback(id, 'down')" class="rounded px-2 py-1 {{ 'bg-rose-100 dark:bg-rose-900/40' if r.feedback == 'down' else 'hover:bg-slate-100 dark:hover:bg-slate-800' }}" aria-label="Not useful">👎</button>
+      </span>
+    </div>
+    <form x-show="dismissing" x-cloak style="display:none" @submit.prevent="decide(id, 'dismiss', reason)" class="mt-3 flex flex-wrap gap-2 text-sm">
+      <label class="sr-only" :for="'reason-' + id">Why not?</label>
+      <input :id="'reason-' + id" x-model="reason" maxlength="500" placeholder="Why not? (optional, FinPilot won't suggest it again)" class="flex-1 min-w-[16rem] rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-1.5">
+      <button class="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 px-3 py-1.5 text-xs">Dismiss</button>
+    </form>
+    <div x-show="open" x-cloak style="display:none" class="mt-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-4 text-sm space-y-3">
+      <template x-if="!trail"><p class="text-muted">Loading the trail…</p></template>
+      <template x-if="trail">
+        <div class="space-y-3">
+          <div><span class="font-medium">Trigger:</span> <span x-text="trail.trail_trigger.replace('_', ' ')"></span></div>
+          <div><div class="font-medium mb-1">Findings it rests on</div>
+            <ul class="space-y-1"><template x-for="f in trail.findings" :key="f.id"><li><span class="font-medium" x-text="f.title"></span> <span class="text-muted" x-text="f.body"></span></li></template></ul></div>
+          <div x-show="trail.evidence_txn_ids_json.length"><a class="text-accent hover:underline" :href="'/app/transactions?ids=' + trail.evidence_txn_ids_json.join(',')" x-text="'See ' + trail.evidence_txn_ids_json.length + ' evidence transactions →'"></a></div>
+          <div x-show="trail.forecast_ref_json.simulation && trail.forecast_ref_json.simulation.min_p10_before !== undefined">
+            <div class="font-medium mb-1">Simulated effect (same 2,000 futures as your forecast)</div>
+            <dl class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+              <div><dt class="text-muted">Bad-case low now</dt><dd x-text="money(trail.forecast_ref_json.simulation.min_p10_before)"></dd></div>
+              <div><dt class="text-muted">With this action</dt><dd x-text="money(trail.forecast_ref_json.simulation.min_p10_after)"></dd></div>
+              <div><dt class="text-muted">Expected balance in 90 days</dt><dd x-text="'+' + money(trail.forecast_ref_json.simulation.end_change)"></dd></div>
+              <div><dt class="text-muted">Chance below cushion</dt><dd x-text="trail.forecast_ref_json.simulation.p_below_buffer_before + '% → ' + trail.forecast_ref_json.simulation.p_below_buffer_after + '%'"></dd></div>
+            </dl>
+          </div>
+          <div class="text-xs text-muted">
+            <span x-text="trail.model ? ('Model ' + trail.model + ' · prompt ' + trail.prompt_name + ' v' + trail.prompt_version) : 'Standard wording (templates/messages/advice.yml)'"></span> ·
+            <span x-text="groundingText(trail.grounding_report_json)"></span>
+            {% if langfuse_base %}<template x-if="trail.langfuse_trace_id"> · <a class="text-accent hover:underline" target="_blank" rel="noopener" :href="{{ langfuse_base|tojson }} + '/traces/' + trail.langfuse_trace_id">Open trace in Langfuse ↗</a></template>{% endif %}
+          </div>
+        </div>
+      </template>
+    </div>
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}
+</div>
+<script type="application/json" id="fp-advice">{{ {'currency': ctx.reporting_currency}|tojson }}</script>
+{% endblock %}

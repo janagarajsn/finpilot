@@ -1,0 +1,15 @@
+{# One analyzer finding. `f` = Finding; `compact` hides the dismiss button and the threshold line. #}
+{% macro finding_card(f, compact=false) -%}
+{% set tone = {'high': 'border-rose-500', 'medium': 'border-amber-500', 'low': 'border-sky-500', 'info': 'border-slate-300 dark:border-slate-600'}[f.severity] %}
+<article class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 border-l-4 {{ tone }} p-4">
+  <div class="flex items-start justify-between gap-3">
+    <h3 class="font-medium leading-snug">{{ f.title }}</h3>
+    <span class="badge flex-none bg-slate-100 dark:bg-slate-800 text-soft">{{ f.severity }}</span>
+  </div>
+  <p class="mt-1 text-sm text-soft">{{ f.body }}</p>
+  <div class="mt-3 flex flex-wrap items-center gap-3 text-xs">
+    {% if f.evidence_txn_ids %}<a class="text-accent hover:underline" href="/app/transactions?ids={{ f.evidence_txn_ids|join(',') }}">See {{ f.evidence_txn_ids|length }} transaction{{ 's' if f.evidence_txn_ids|length != 1 }} →</a>{% endif %}
+    {% if not compact and f.id %}<button type="button" data-fp-post="/insights/findings/{{ f.id }}/dismiss" class="text-muted hover:text-slate-800 dark:hover:text-slate-200">Dismiss</button>{% endif %}
+  </div>
+</article>
+{%- endmacro %}

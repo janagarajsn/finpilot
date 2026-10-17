@@ -1,0 +1,17 @@
+# Runtime MCP servers used by the app. Any tool not in `allowed_tools` cannot be called.
+# Transports: streamable_http (url) | stdio (command + args). URLs may use ${ENV_VAR}.
+servers:
+  fx:
+    enabled: true
+    transport: streamable_http
+    url: ${FX_MCP_URL}
+    timeout_s: 5
+    retries: 2
+    breaker_failures: 3       # consecutive failures that open the circuit
+    breaker_reset_s: 30       # half-open after this many seconds
+    cache_ttl_s: 21600        # Redis cache for identical tool calls (6 h; daily rates)
+    allowed_tools:
+      - get_rate
+      - get_rates_range
+      - convert
+      - list_supported_currencies

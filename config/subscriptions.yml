@@ -1,0 +1,21 @@
+# Subscription overlap groups: two or more active subscriptions in one group → `overlap` flag.
+# Matched against merchant_norm (regex, case-insensitive). Adding a service = adding a pattern.
+overlap_groups:
+  video_streaming:
+    label: Video streaming
+    patterns: ['NETFLIX', 'HOTSTAR', 'PRIME VIDEO', 'SONYLIV', 'ZEE5', 'HULU', 'DISNEY', 'HBO', 'MAX\b', 'PEACOCK', 'PARAMOUNT', 'APPLE TV', 'JIOCINEMA', 'YOUTUBE']
+  music:
+    label: Music streaming
+    patterns: ['SPOTIFY', 'APPLE MUSIC', 'YOUTUBE MUSIC', 'GAANA', 'JIOSAAVN', 'WYNK', 'TIDAL', 'PANDORA', 'AMAZON MUSIC']
+  ai_assistants:
+    label: AI assistants
+    patterns: ['OPENAI', 'CHATGPT', 'ANTHROPIC', 'CLAUDE', 'GEMINI', 'PERPLEXITY', 'MIDJOURNEY', 'COPILOT']
+  cloud_storage:
+    label: Cloud storage
+    patterns: ['ICLOUD', 'APPLE BILL', 'GOOGLE ONE', 'GOOGLE STORAGE', 'DROPBOX', 'ONEDRIVE']
+  news:
+    label: News & magazines
+    patterns: ['NYTIMES', 'NYT', 'WSJ', 'MAGZTER', 'ECONOMIST', 'WASHINGTON POST', 'THE HINDU', 'ECONOMIC TIMES']
+  fitness:
+    label: Fitness
+    patterns: ['CULT ?FIT', 'PELOTON', 'STRAVA', 'PLANET FITNESS', 'GOLDS GYM', 'ANYTIME FITNESS']

@@ -1,0 +1,58 @@
+# Deterministic simulator text (plain-text Jinja). Variables: r = SimulationResult (dict form),
+# money(x, currency). Every number comes from the simulation; the LLM narration (Phase 6) will
+# be checked by the grounding guard against these same numbers.
+
+verdict:
+  affordable: >-
+    Affordable. Even in a bad case (10th percentile) your balance stays at or above your
+    {{ money(r.buffer, cur) }} cushion for the next {{ r.horizon }} days; the lowest point is
+    {{ money(r.result.min_p10, cur) }} on {{ d(r.result.min_p10_date) }}.
+  risky: >-
+    Risky. On a typical path your balance stays above your {{ money(r.buffer, cur) }} cushion
+    (lowest {{ money(r.result.min_p50, cur) }} on {{ d(r.result.min_p50_date) }}), but in a bad case it
+    drops to {{ money(r.result.min_p10, cur) }} on {{ d(r.result.min_p10_date) }}.
+  not_affordable: >-
+    Not affordable right now. Your typical-path balance would fall to {{ money(r.result.min_p50, cur) }}
+    on {{ d(r.result.min_p50_date) }}, below your {{ money(r.buffer, cur) }} cushion
+    ({{ pct(r.result.p_below_zero) }} chance of going below zero).
+
+effect: >-
+  It lowers your expected balance in {{ r.horizon }} days by {{ money(-r.end_delta_mean, cur) }}
+  (to {{ money(r.result.end_mean, cur) }}).
+
+baseline_note: >-
+  Note: even without this, your forecast is {{ verdict_word(r.baseline.verdict) }} (bad-case low
+  {{ money(r.baseline.min_p10, cur) }} on {{ d(r.baseline.min_p10_date) }}).
+
+fx_note: >-
+  {{ fx.currency }} amounts were converted at {{ fx.rate }} {{ fx.reporting_currency }} per {{ fx.currency }}
+  (stored reference rate{{ ' of ' ~ fx.rate_date if fx.rate_date else '' }}).
+
+lever:
+  delay: "Waiting {{ t.days }} days (until {{ t.date }}) raises your bad-case low to {{ money(o.min_p10, cur) }} ({{ verdict_word(o.verdict) }})."
+  installments: "Paying in {{ t.n }} interest-free monthly installments raises your bad-case low to {{ money(o.min_p10, cur) }} ({{ verdict_word(o.verdict) }})."
+  category_cut: "Spending {{ t.pct|int }}% less on {{ t.category }} raises your bad-case low to {{ money(o.min_p10, cur) }} ({{ verdict_word(o.verdict) }})."
+  cancel_subscription: "Cancelling {{ t.merchant }} raises your bad-case low to {{ money(o.min_p10, cur) }} ({{ verdict_word(o.verdict) }})."
+
+verdict_word:
+  affordable: affordable
+  risky: risky
+  not_affordable: not affordable
+
+clarify:
+  amount: "How much would it cost?"
+  total: "What is the total amount you would borrow or pay in installments?"
+  n: "Over how many monthly installments?"
+  merchant: "Which subscription would you cancel? (for example: {{ examples }})"
+  category: "Which spending category would you cut? (for example: {{ examples }})"
+  pct: "By what percentage?"
+  income: "By how much would your income change (a percentage or an amount per month)?"
+
+unsupported: >-
+  I can only simulate one change at a time: a purchase, a new recurring cost, cancelling a
+  subscription, an income change, a savings transfer, a spending cut, or a loan/installments.
+  Try the form below for anything more detailed.
+
+gave_up: "I still could not tell what to simulate. Please use the form."
+
+unavailable: "The assistant is unavailable right now, so I can't read that question. Use the what-if form on the Forecast page instead."

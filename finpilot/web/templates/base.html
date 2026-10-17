@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FinPilot{% endblock %} · FinPilot</title>
+  <script src="/static/theme-init.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.1.1/index.css">
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/static/tw-config.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
+  <script src="/static/money.js"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/js/api.js"></script>
+  {% if user %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+  <script src="/static/js/datepicker.js"></script>
+  <script src="/static/js/txn-modal.js"></script>
+  {% endif %}
+  {% block head_scripts %}{% endblock %}
+  <meta name="csrf-token" content="{{ csrf_token }}">
+</head>
+<body class="h-full bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 antialiased">
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-white focus:p-2 focus:text-slate-900">Skip to content</a>
+  {% from "partials/icons.html" import icon %}
+  {% if user %}
+  <div x-data="{ drawer: false }" @keydown.escape.window="drawer = false" class="min-h-full">
+    {# mobile drawer #}
+    <div x-show="drawer" x-cloak style="display:none" class="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+      <div class="absolute inset-0 bg-slate-950/60" @click="drawer = false"></div>
+      <aside class="relative h-full w-72 max-w-[85%] overflow-y-auto bg-white dark:bg-slate-900 shadow-xl">
+        <button type="button" @click="drawer = false" class="absolute right-3 top-4 rounded p-1 text-muted hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close menu">{{ icon("x") }}</button>
+        {% include "partials/sidebar.html" %}
+      </aside>
+    </div>
+    {# desktop sidebar #}
+    <aside class="hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:w-60 lg:flex-col overflow-y-auto border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      {% include "partials/sidebar.html" %}
+    </aside>
+
+    <div class="lg:pl-60 min-h-full flex flex-col">
+      <header class="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 px-4 backdrop-blur lg:px-8">
+        <button type="button" @click="drawer = true" class="rounded-lg p-1.5 text-soft hover:bg-slate-100 dark:hover:bg-slate-800 lg:hidden" aria-label="Open menu">{{ icon("menu") }}</button>
+        <a href="/" class="font-semibold lg:hidden">FinPilot</a>
+        <div class="ml-auto flex items-center gap-1 sm:gap-2 text-sm">
+          <span class="hidden sm:inline rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-1 text-xs font-medium text-soft" title="Reporting currency">{{ user.reporting_currency }}</span>
+          <button type="button" data-theme-toggle class="rounded-lg p-2 text-soft hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Toggle dark mode" title="Light / dark">
+            <span class="dark:hidden">{{ icon("moon") }}</span><span class="hidden dark:inline">{{ icon("sun") }}</span></button>
+          <a href="/app/inbox" class="relative rounded-lg p-2 {{ 'text-accent bg-brand-50 dark:bg-brand-500/15' if active == '/app/inbox' else 'text-soft hover:bg-slate-100 dark:hover:bg-slate-800' }}" aria-label="Inbox{% if inbox and inbox.total %} ({{ inbox.total }} unread){% endif %}" title="Digests and alerts">{{ icon("bell") }}{% if inbox and inbox.total %}<span class="absolute right-0.5 top-0.5 min-w-[1.1rem] rounded-full bg-rose-600 px-1 text-center text-[10px] font-semibold leading-4 text-white">{{ inbox.total }}</span>{% endif %}</a>
+          <details class="relative" x-data @click.outside="$el.removeAttribute('open')">
+            <summary class="list-none flex cursor-pointer items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-slate-100 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden" aria-label="Account menu">
+              <span class="grid h-8 w-8 place-items-center rounded-full bg-brand-100 dark:bg-brand-500/20 text-xs font-semibold text-accent" aria-hidden="true">{{ (user.name or user.email or '?')[:1]|upper }}</span>
+              <span class="hidden md:inline max-w-[10rem] truncate font-medium">{{ user.name or user.email }}</span>{{ icon("chevron", "h-4 w-4 text-muted") }}</summary>
+            <div class="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-slate-200 dark:ring-slate-700">
+              <p class="truncate px-3 py-2 text-xs text-muted">{{ user.email }}</p>
+              <a href="/account" class="block rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Settings</a>
+              <a href="/app/inbox" class="block rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">Inbox</a>
+              <a href="/app/memory" class="block rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">What FinPilot remembers</a>
+              <form method="post" action="/web/logout" class="border-t border-slate-200 dark:border-slate-700 mt-1 pt-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-neg hover:bg-slate-100 dark:hover:bg-slate-800">{{ icon("logout", "h-4 w-4") }} Sign out</button>
+              </form>
+            </div>
+          </details>
+        </div>
+      </header>
+      {% if fx and (fx.approximate or fx.stale or not fx.live) %}
+      <div role="status" class="bg-amber-50 dark:bg-amber-900/30 text-warn text-sm text-center py-1.5 px-4">
+        {% if fx.approximate %}Live exchange rates are unavailable: amounts in other currencies use <strong>approximate rates</strong>.
+        {% elif fx.stale %}Exchange rates are <strong>stale</strong> (last updated {{ fx.as_of }}).
+        {% else %}Live exchange rates are unavailable right now: amounts in other currencies use <strong>stored rates</strong> from {{ fx.as_of }}.{% endif %}
+      </div>
+      {% endif %}
+      <main id="main" class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 lg:px-8">
+        {% block content %}{% endblock %}
+      </main>
+      <footer class="mx-auto w-full max-w-7xl px-4 pb-8 text-xs text-muted flex flex-wrap gap-x-4 lg:px-8">
+        <span>Amounts shown in {{ user.reporting_currency }}.</span>
+        {% if fx and fx.as_of %}<span>Rates as of {{ fx.as_of }} · {{ fx.source_label }}</span>{% endif %}
+        <span>Daily reference rates, not your bank's card rate.</span>
+      </footer>
+    </div>
+  </div>
+  <script type="application/json" id="fp-ctx">{{ ctx|tojson }}</script>
+  {% include "partials/txn_modal.html" %}
+  {% else %}
+  <div class="absolute right-4 top-4">
+    <button type="button" data-theme-toggle class="rounded-lg p-2 text-soft hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Toggle dark mode">
+      <span class="dark:hidden">{{ icon("moon") }}</span><span class="hidden dark:inline">{{ icon("sun") }}</span></button>
+  </div>
+  <main id="main" class="mx-auto max-w-6xl px-4 py-8">
+    {% block content_public %}{{ self.content() }}{% endblock %}
+  </main>
+  {% endif %}
+</body>
+</html>

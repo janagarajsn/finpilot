@@ -1,0 +1,26 @@
+# Digest and alert texts (deterministic). money(x, cur) formats amounts. Plain text.
+subject: "Your FinPilot week: {{ period_label }}"
+insight: "{{ title }}. {{ body }}"
+no_insight: "Nothing unusual stood out in your recent spending."
+action: >-
+  {{ title }}: {{ action }}{% if monthly %} (about {{ money(monthly, cur) }} a month){% endif %}{% if end_change %}; in our
+  simulation your expected balance in {{ horizon_days }} days ends {{ money(end_change|abs, cur) }} {{ 'higher' if end_change > 0 else 'lower' }}{% endif %}.
+no_action: "No new action this week; open Advice to refresh your recommendations."
+goal: >-
+  {{ name }}: {{ status|replace('_', ' ') }}{% if pct is not none %} ({{ pct|round|int }}%){% endif %}{% if eta %}, done around {{ eta }}{% endif %}{% if change %}, {{ '+' if change > 0 else '−' }}{{ money(change|abs, cur) }} since last week{% endif %}
+bill: "{{ date }} {{ description }} {{ money(amount, currency) }}{% if estimated %} (expected){% endif %}"
+degraded: "Note: the AI service was unavailable for the last refresh, so this digest uses FinPilot's standard wording."
+fx_notice: "Exchange rates are {{ 'approximate' if approximate else 'not live' }} (as of {{ as_of }}); converted amounts may be slightly off."
+telegram_fallback: "Telegram is not linked yet, so this digest is in your FinPilot inbox. Link Telegram in Settings."
+
+alert:
+  low_balance:
+    title: "Your balance may drop below {{ money(buffer, cur) }} by {{ date }}"
+    body: >-
+      In a bad case (1 in 10) your balance could fall to {{ money(low, cur) }} around {{ low_date }}, below your
+      {{ money(buffer, cur) }} cushion{% if bills %}; upcoming: {{ bills }}{% endif %}. Open the forecast to see what would help.
+
+telegram:
+  linked: "FinPilot is linked. Your weekly digest and low-balance alerts will arrive here."
+  bad_token: "That link has expired or was already used. Create a new one in FinPilot → Settings."
+  help: "This is FinPilot's delivery bot. Link it from FinPilot → Settings → Telegram."

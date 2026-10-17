@@ -1,0 +1,67 @@
+# Production override: HTTPS via Caddy, nothing else published.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
+#
+# Requires in .env: APP_DOMAIN, ACME_EMAIL, SECRET_KEY (≥ 32 random chars), strong database
+# passwords, MESH_API_KEY; optional LANGFUSE_DOMAIN to expose Langfuse (else it stays internal).
+# See DEPLOY.md.
+
+x-prod-env: &prod-env
+  APP_ENV: prod
+  APP_BASE_URL: https://${APP_DOMAIN:?set APP_DOMAIN in .env}
+  SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env (make prod-secrets)}
+  # Only Caddy can reach the app (no published port), so trust its X-Forwarded-For: rate limits
+  # and lockouts then see the real client IP instead of Caddy's.
+  FORWARDED_ALLOW_IPS: "*"
+
+services:
+  caddy:
+    image: caddy:2.8.4
+    profiles: ["prod"]
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}  # required in prod (make prod-check)
+      LANGFUSE_DOMAIN: ${LANGFUSE_DOMAIN:-langfuse.localhost}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app: {condition: service_healthy}
+
+  app:
+    ports: !reset []
+    environment:
+      <<: *prod-env
+  worker:
+    environment:
+      <<: *prod-env
+  beat:
+    environment:
+      <<: *prod-env
+
+  finpilot-postgres:
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a strong POSTGRES_PASSWORD in .env}
+      FINPILOT_APP_DB_PASSWORD: ${FINPILOT_APP_DB_PASSWORD:?set FINPILOT_APP_DB_PASSWORD in .env}
+      FINPILOT_ADMIN_DB_PASSWORD: ${FINPILOT_ADMIN_DB_PASSWORD:?set FINPILOT_ADMIN_DB_PASSWORD in .env}
+  finpilot-redis:
+    ports: !reset []
+
+  # Langfuse: reachable only through Caddy (LANGFUSE_DOMAIN) or not at all
+  langfuse-web:
+    ports: !reset []
+    environment:
+      NEXTAUTH_URL: https://${LANGFUSE_DOMAIN:-langfuse.localhost}
+  langfuse-minio:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

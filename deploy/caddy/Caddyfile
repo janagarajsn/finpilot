@@ -1,0 +1,26 @@
+# Caddy: automatic HTTPS (Let's Encrypt / ZeroSSL) for the app and, optionally, Langfuse.
+# For a local trial set APP_DOMAIN=localhost: Caddy then uses its own internal CA.
+{
+	# required in prod (make prod-check); the default only serves local trials (internal CA)
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8000 {
+		# server-sent events (pipeline progress, chat) must not be buffered
+		flush_interval -1
+	}
+	header -Server
+	log {
+		output stdout
+		format console
+	}
+}
+
+# Optional: Langfuse UI on its own domain (leave LANGFUSE_DOMAIN unset to keep it internal).
+{$LANGFUSE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy langfuse-web:3000
+	header -Server
+}

@@ -1,0 +1,49 @@
+# Deterministic answers per intent (and the fallback for LLM-phrased intents). Variables: the
+# intent's facts (finpilot/answers/facts.py), `cur`, money(x, cur). Plain text, 1–4 sentences.
+no_data: "There are no transactions for {{ period_label|lower }} yet, so there is nothing to summarise."
+
+spending_trend: >-
+  You spent {{ money(spend, cur) }} {{ when }}{% if previous_spend %}, versus {{ money(previous_spend, cur) }}
+  in the period before{% if spend_change_pct is not none %} ({{ '+' if spend_change_pct > 0 else '' }}{{ spend_change_pct }}%){% endif %}{% endif %}.
+  {% if rising_categories %}Rising fastest: {% for c in rising_categories %}{{ c.category }} ({{ money(c.last_month, cur) }} last month, +{{ c.change_pct }}%){{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}
+
+where_overspending: >-
+  {% if categories %}Your biggest spending {{ when }}: {% for c in categories[:3] %}{{ c.category }} {{ money(c.spend, cur) }} ({{ c.share_pct }}%){{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}
+  {% if flags %} Worth a look: {{ flags[0].title }}.{% endif %}
+
+top_categories: >-
+  Top categories {{ when }} (out of {{ money(total_spend, cur) }}): {% for c in categories[:5] %}{{ c.category }}
+  {{ money(c.spend, cur) }} ({{ c.share_pct }}%){{ ', ' if not loop.last else '.' }}{% endfor %}
+
+where_to_save: >-
+  {% if recommendations %}Your best options: {% for r in recommendations %}{{ r.title }}{% if r.monthly_saving %} (about {{ money(r.monthly_saving, cur) }} a month){% elif r.one_time %} ({{ money(r.one_time, cur) }} back once){% endif %}{{ '; ' if not loop.last else '.' }}{% endfor %}{% else %}Open the Advice page to get personalised savings ideas.{% endif %}
+  {% if subscriptions_count %} Subscriptions cost you {{ money(subscriptions_monthly, cur) }} a month in total.{% endif %}
+
+upcoming_bills: >-
+  {% if items %}{{ count }} item{{ 's' if count != 1 }} in the next {{ days }} days: {% for i in items[:5] %}{{ i.date[5:] }} {{ i.description }} {{ money(i.amount, i.amount_currency) }}{{ ' (expected)' if i.expected }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% if total_out %} Going out: {{ money(total_out, cur) }}.{% endif %}{% else %}Nothing scheduled in the next {{ days }} days.{% endif %}
+
+subscription_review: >-
+  {% if count %}You have {{ count }} active subscription{{ 's' if count != 1 }} costing {{ money(monthly, cur) }} a month
+  ({{ money(annual, cur) }} a year): {% for x in subscriptions[:5] %}{{ x.merchant }} {{ money(x.monthly, cur) }}{{ ' [' ~ (x.flags|join(', ')|replace('_', ' ')) ~ ']' if x.flags }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% else %}No recurring subscriptions detected yet.{% endif %}
+
+goal_status: >-
+  {% if goals %}{% for g in goals %}{{ g.name }}: {{ g.status|replace('_', ' ') }}{% if g.eta %}, around {{ g.eta[:7] }}{% endif %}{% if g.remaining %} ({{ money(g.remaining, cur) }} to go){% endif %}{% if g.over_by %} ({{ money(g.over_by, cur) }} over the cap){% endif %}{{ '; ' if not loop.last else '.' }}{% endfor %}{% else %}You have no goals yet. Add one on the Forecast page.{% endif %}
+
+savings_rate: >-
+  {% if savings_rate is not none %}Your savings rate {{ when }} is {{ savings_rate }}% ({{ money(net, cur) }} kept of
+  {{ money(income, cur) }} income){% if previous_savings_rate is not none %}, versus {{ previous_savings_rate }}% the period before{% endif %}.{% else %}No income recorded {{ when }}, so there is no savings rate yet.{% endif %}
+
+income_summary: >-
+  Income {{ when }}: {{ money(income, cur) }}{% if income_change_pct is not none %} ({{ '+' if income_change_pct > 0 else '' }}{{ income_change_pct }}% vs the period before){% endif %}.
+  {% if sources %}Largest sources: {% for x in sources[:3] %}{{ x.source }} {{ money(x.amount, cur) }}{{ ', ' if not loop.last else '.' }}{% endfor %}{% endif %}
+
+free_form: >-
+  I can answer questions about your spending trend, where to save, top categories, upcoming bills, subscriptions, goals,
+  savings rate, income, or whether you can afford something. In {{ period_label|lower }} you spent {{ money(spend, cur) }}
+  of {{ money(income, cur) }} income.
+
+# Retry message when a canonical answer borrows a specific word from the question that the facts
+# do not cover (e.g. labelling overall spending as "cricket gear").
+borrowed_words: >-
+  The facts are about the overall picture, not about {{ words|join(', ') }}. Do not attribute any
+  figure to {{ words|join(', ') }}; describe only what the facts cover.

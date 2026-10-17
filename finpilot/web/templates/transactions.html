@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+{% block head_scripts %}<script src="/static/js/transactions.js"></script>{% endblock %}
+{% block content %}
+{% set cur = user.reporting_currency %}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+  <div>
+    <h1 class="text-2xl font-semibold">Transactions</h1>
+    <p class="text-sm text-muted">{{ total }} {{ 'transaction' if total == 1 else 'transactions' }}{% if review_count %} · <a class="text-warn hover:underline" href="?needs_review=true">{{ review_count }} to review</a>{% endif %}</p>
+  </div>
+  <div class="flex gap-2">
+    <a href="/transactions/export.csv" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Export CSV</a>
+    <a href="/app/import" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Import</a>
+    <button type="button" data-add-txn="expense" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 text-sm">+ Add expense</button>
+    <button type="button" data-add-txn="income" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm">+ Add income</button>
+  </div>
+</div>
+
+<form method="get" class="flex flex-wrap gap-2 items-end mb-4 text-sm" role="search" x-data="{ period: '{{ period }}' }">
+  <label class="flex-1 min-w-[12rem]"><span class="sr-only">Search</span>
+    <input name="q" value="{{ f.q or '' }}" placeholder="Search description, merchant, notes" class="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+  <label><span class="sr-only">Category</span>
+    <select name="category" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      <option value="">All categories</option>
+      <option value="uncategorized" {{ 'selected' if f.uncategorized }}>Uncategorized</option>
+      {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if f.category_id == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select></label>
+  <label><span class="sr-only">Type</span>
+    <select name="kind" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      <option value="">Expense & income</option><option value="expense" {{ 'selected' if f.kind == 'expense' }}>Expenses</option><option value="income" {{ 'selected' if f.kind == 'income' }}>Income</option>
+    </select></label>
+  <label><span class="sr-only">Period</span>
+    <select name="period" x-model="period" @change="period !== 'custom' && $el.form.requestSubmit()" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      {% for v, l in periods.items() %}<option value="{{ v }}" {{ 'selected' if period == v }}>{{ l }}</option>{% endfor %}
+    </select></label>
+  <label x-show="period === 'custom'" {% if period != 'custom' %}style="display:none"{% endif %}>From <input type="date" name="date_from" x-datepicker value="{{ f.date_from or '' }}" class="w-36 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"></label>
+  <label x-show="period === 'custom'" {% if period != 'custom' %}style="display:none"{% endif %}>To <input type="date" name="date_to" x-datepicker value="{{ f.date_to or '' }}" class="w-36 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2"></label>
+  {% if period not in ('', 'custom') %}<span class="py-2 text-muted" x-show="period === '{{ period }}'">{{ f.date_from|day }} – {{ f.date_to|day }}</span>{% endif %}
+  <label><span class="sr-only">Sort</span>
+    <select name="sort" class="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+      {% for v, l in [("date_desc","Newest"),("date_asc","Oldest"),("amount_desc","Largest"),("amount_asc","Smallest")] %}<option value="{{ v }}" {{ 'selected' if f.sort == v }}>{{ l }}</option>{% endfor %}
+    </select></label>
+  {% if f.needs_review %}<input type="hidden" name="needs_review" value="true">{% endif %}
+  <button class="rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 px-4 py-2">Filter</button>
+  <a href="/app/transactions" class="px-2 py-2 text-muted hover:underline">Reset</a>
+</form>
+
+{% if items %}
+<div class="overflow-x-auto rounded-2xl ring-1 ring-slate-200 dark:ring-slate-800 bg-white dark:bg-slate-900" tabindex="0">
+<table class="w-full text-sm">
+  <thead class="eyebrow text-left border-b border-slate-200 dark:border-slate-800">
+    <tr><th class="px-4 py-2">Date</th><th class="px-4 py-2">Description</th><th class="px-4 py-2">Category</th><th class="px-4 py-2 text-right">Amount</th><th class="px-4 py-2"><span class="sr-only">Actions</span></th></tr>
+  </thead>
+  <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+  {% for t in items %}
+    <tr x-data='txnRow("{{ t.id }}", {{ (t.merchant_norm or "")|tojson }})'>
+      <td class="px-4 py-2 whitespace-nowrap">{{ t.date|day }}</td>
+      <td class="px-4 py-2 max-w-xs">
+        <div class="truncate" title="{{ t.description }}">{{ t.description }}</div>
+        <div class="flex flex-wrap gap-1 mt-0.5">
+          <span class="badge bg-slate-100 dark:bg-slate-800 text-muted" title="How this was entered">{{ t.source|replace('_', ' ') }}</span>
+          {% if t.cat_source %}<span class="badge bg-brand-50 dark:bg-slate-800 text-accent" title="{{ t.cat_rationale or 'How the category was chosen' }}">{{ t.cat_source }}{% if t.cat_confidence is not none and t.cat_source != 'user' %} · {{ (t.cat_confidence * 100)|round|int }}%{% endif %}</span>{% endif %}
+          {% if t.needs_review %}<span class="badge bg-amber-100 dark:bg-amber-900/40 text-amber-800">review</span>{% endif %}
+          {% if t.recurring_rule_id %}<span class="badge bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">recurring</span>{% endif %}
+        </div>
+      </td>
+      <td class="px-4 py-2">
+        <label class="sr-only" for="cat-{{ t.id }}">Category</label>
+        <select id="cat-{{ t.id }}" @change="setCategory($event)" :disabled="busy" class="max-w-[11rem] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-xs">
+          <option value="">Uncategorized</option>
+          {% for c in categories %}<option value="{{ c.id }}" {{ 'selected' if t.category_id == c.id }}>{{ c.name }}</option>{% endfor %}
+        </select>
+        <div class="text-[11px] text-muted" x-text="msg" aria-live="polite"></div>
+      </td>
+      <td class="px-4 py-2 text-right whitespace-nowrap {{ 'text-pos' if t.amount > 0 else '' }}">
+        {{ t.amount_reporting|money(cur) }}
+        {% if t.currency != cur %}
+        <div class="text-xs text-muted">{{ t.amount|money(t.currency) }}{% if t.currency != 'INR' %} · <button type="button" class="underline decoration-dotted" @click="overrideFx('{{ t.currency }}')" title="Rate {{ t.fx_rate }} ({{ t.fx_source|replace('_', ' ') }}, {{ t.fx_rate_date }}). Click to set your bank's exact rate.">rate</button>{% endif %}</div>
+        {% elif t.currency != 'INR' %}<div class="text-xs text-muted">≈ {{ t.amount_inr|money('INR') }} · <button type="button" class="underline decoration-dotted" @click="overrideFx('{{ t.currency }}')">rate</button></div>{% endif %}
+      </td>
+      <td class="px-4 py-2 text-right"><button type="button" @click="remove" class="text-muted hover:text-neg" aria-label="Delete transaction">✕</button></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<nav class="flex justify-between items-center mt-4 text-sm" aria-label="Pagination">
+  <span class="text-muted">Showing {{ f.offset + 1 }}–{{ f.offset + items|length }} of {{ total }}</span>
+  <div class="flex gap-2">
+    {% if f.offset > 0 %}<a class="px-3 py-1.5 rounded-lg ring-1 ring-slate-300 dark:ring-slate-700" href="{{ page_url(f.offset - f.limit) }}">← Previous</a>{% endif %}
+    {% if f.offset + f.limit < total %}<a class="px-3 py-1.5 rounded-lg ring-1 ring-slate-300 dark:ring-slate-700" href="{{ page_url(f.offset + f.limit) }}">Next →</a>{% endif %}
+  </div>
+</nav>
+{% else %}
+<div class="text-center rounded-2xl ring-1 ring-dashed ring-slate-300 dark:ring-slate-700 py-16">
+  <p class="text-soft mb-4">{{ 'No transactions match these filters.' if filtered else 'No transactions yet.' }}</p>
+  {% if not filtered %}<div class="flex justify-center gap-2"><button type="button" data-add-txn="expense" class="rounded-lg bg-brand-600 text-white px-4 py-2 text-sm">+ Add your first expense</button><a href="/app/import" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-4 py-2 text-sm">Import a file</a></div>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

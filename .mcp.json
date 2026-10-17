@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": { "Authorization": "Bearer ${CONTEXT7_API_KEY:-}" }
+    },
+    "postgres": {
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": { "DATABASE_URI": "${DEV_DATABASE_URI_RO:-postgresql://finpilot_ro:finpilot_ro@localhost:5432/finpilot}" }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_PAT:-}" }
+    },
+    "langfuse-docs": {
+      "type": "http",
+      "url": "https://langfuse.com/api/mcp"
+    }
+  }
+}

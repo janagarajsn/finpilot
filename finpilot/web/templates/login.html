@@ -1,0 +1,10 @@
+{% extends "_auth_layout.html" %}
+{% from "partials/field.html" import input, error, notice, submit %}
+{% block title %}Sign in{% endblock %}
+{% block card %}
+<h1 class="text-lg font-semibold mb-4">Sign in</h1>
+<form id="login-form" method="post" action="/web/login" hx-post="/web/login" hx-target="#login-form" hx-select="#login-form" hx-swap="outerHTML">
+  {% include "partials/login_form_body.html" %}
+</form>
+{% endblock %}
+{% block below %}No account? <a href="/register" class="text-accent hover:underline">Create one</a> · <a href="/forgot-password" class="text-accent hover:underline">Forgot password?</a>{% endblock %}

@@ -1,0 +1,18 @@
+# Header synonyms for auto-detecting columns in non-template CSV/XLSX files (case/space-insensitive).
+# The user can always edit the mapping in the wizard.
+fields:
+  date: [date, txn date, transaction date, value date, posting date, posted date, trans date, booking date]
+  description: [description, narration, details, particulars, merchant, payee, memo, transaction details, remarks, name]
+  amount: [amount, amt, transaction amount, value, amount (inr), amount (usd), amount inr, amount usd]
+  debit: [debit, withdrawal, withdrawals, withdrawal amt, withdrawal amount, dr, debit amount, money out, paid out]
+  credit: [credit, deposit, deposits, deposit amt, deposit amount, cr, credit amount, money in, paid in]
+  type: [type, transaction type, dr/cr, cr/dr, debit/credit, txn type]
+  category: [category, categories]
+  account: [account, account name, card]
+  notes: [notes, note, comment, comments]
+  currency: [currency, ccy, curr]
+  fx_rate: [fx_rate, fx rate, exchange rate, rate to inr, inr rate]
+# Values of the `type` column understood as expense / income.
+type_values:
+  expense: [expense, debit, dr, withdrawal, purchase, payment, out, spend]
+  income: [income, credit, cr, deposit, refund, in, salary]

@@ -1,0 +1,19 @@
+{# Sample datasets from data/sample/ (dataset buttons are handled in static/js/api.js). #}
+{% macro sample_data(sample, heading_id="sample-h") %}
+<section id="sample" aria-labelledby="{{ heading_id }}" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+  <h2 id="{{ heading_id }}" class="font-semibold">Load sample data</h2>
+  {% if sample.loaded %}
+  <p class="mt-1 text-sm text-muted">Sample data <strong class="text-soft">{{ (sample.datasets|selectattr('key', 'equalto', sample.loaded)|first).label }}</strong> is loaded. To remove it, undo the <span class="font-mono">sample-data</span> import on the <a href="/app/import#history" class="text-accent hover:underline">Import page</a>.</p>
+  {% else %}
+  <p class="mt-1 mb-3 text-sm text-muted">Just exploring? Load six months of realistic transactions with recurring bills, a few unusual charges and a price rise, so Insights, Forecast and Advice have something to work with. You can undo it from the Import page.</p>
+  <div class="grid gap-2 sm:grid-cols-3">
+    {% for ds in sample.datasets %}
+    <button type="button" data-load-sample="{{ ds.key }}" class="rounded-xl px-3 py-2.5 text-left ring-1 ring-slate-200 dark:ring-slate-700 hover:ring-brand-500 dark:hover:ring-brand-400 hover:bg-brand-50 dark:hover:bg-slate-800 transition">
+      <span class="block text-sm font-medium">{{ ds.label }}</span>
+      <span class="block text-xs text-muted">{{ ds.description }}</span>
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endmacro %}

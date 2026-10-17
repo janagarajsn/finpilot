@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "partials/field.html" import input, error, notice, submit, currency_select %}
+{% block title %}Settings{% endblock %}
+{% block head_scripts %}<script src="/static/js/account.js"></script>{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Settings</h1>
+<div class="grid lg:grid-cols-2 gap-6">
+  <section aria-labelledby="profile-h" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="profile-h" class="font-semibold mb-4">Profile</h2>
+    <form id="profile-form" method="post" action="/web/account/profile" hx-post="/web/account/profile" hx-target="#profile-form" hx-select="#profile-form" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ notice(profile_notice) }}{{ error(profile_error) }}
+      {{ input("name", "Name", "text", user.name, "name") }}
+      <div class="mb-4 text-sm"><span class="text-muted">Email:</span> {{ user.email }}</div>
+      {{ currency_select("reporting_currency", currencies, user.reporting_currency) }}
+      <p class="-mt-2 mb-4 text-xs text-muted">Switching currency only changes how amounts are displayed. Nothing is relabelled; transactions keep their original currency.</p>
+      {{ input("timezone", "Timezone", "text", user.timezone, None, attrs='list="tz-list"') }}
+      <datalist id="tz-list">{% for tz in timezones %}<option value="{{ tz }}">{% endfor %}</datalist>
+      {{ submit("Save profile") }}
+    </form>
+  </section>
+
+  <section aria-labelledby="pw-h" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="pw-h" class="font-semibold mb-4">Password</h2>
+    <form id="pw-form" method="post" action="/web/account/password" hx-post="/web/account/password" hx-target="#pw-form" hx-select="#pw-form" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ notice(pw_notice) }}{{ error(pw_error) }}
+      {{ input("current_password", "Current password", "password", "", "current-password") }}
+      {{ input("new_password", "New password", "password", "", "new-password", attrs='minlength="10"', help="Changing your password signs out your other sessions.") }}
+      {{ submit("Change password") }}
+    </form>
+  </section>
+
+  <section aria-labelledby="digest-h" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="digest-h" class="font-semibold mb-4">Digest & alerts</h2>
+    <form id="digest-form" method="post" action="/web/account/settings" hx-post="/web/account/settings" hx-target="#digest-form" hx-select="#digest-form" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ notice(settings_notice) }}{{ error(settings_error) }}
+      <label class="flex items-center gap-2 mb-3"><input type="checkbox" name="digest_enabled" value="1" {{ 'checked' if settings.digest_enabled }}> Weekly digest</label>
+      <div class="grid grid-cols-3 gap-3 mb-3">
+        <label class="text-sm">Channel
+          <select name="digest_channel" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+            {% for v, l in [("in_app","In-app"),("email","Email"),("telegram","Telegram")] %}<option value="{{ v }}" {{ 'selected' if settings.digest_channel == v }}>{{ l }}</option>{% endfor %}
+          </select></label>
+        <label class="text-sm">Day
+          <select name="digest_dow" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+            {% for d in ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] %}<option value="{{ loop.index0 }}" {{ 'selected' if settings.digest_dow == loop.index0 }}>{{ d }}</option>{% endfor %}
+          </select></label>
+        <label class="text-sm">Hour
+          <select name="digest_hour" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+            {% for h in range(24) %}<option value="{{ h }}" {{ 'selected' if settings.digest_hour == h }}>{{ '%02d:00'|format(h) }}</option>{% endfor %}
+          </select></label>
+      </div>
+      <label class="flex items-center gap-2 mb-3"><input type="checkbox" name="risk_alert_enabled" value="1" {{ 'checked' if settings.risk_alert_enabled }}> Low-balance risk alerts</label>
+      {{ input("cash_buffer", "Cash buffer (" ~ user.reporting_currency ~ ")", "number", settings.cash_buffer or "", None, required=False, attrs='min="0" step="0.01"', help="Alerts fire when your forecast dips below this. Leave empty for the default.") }}
+      {{ submit("Save preferences") }}
+    </form>
+  </section>
+  <section aria-labelledby="tg-h" x-data="telegramLink" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="tg-h" class="font-semibold mb-2">Telegram</h2>
+    {% if settings.telegram_linked %}
+    <p class="text-sm mb-3">Linked. Choose <em>Telegram</em> as the digest channel above to get digests and alerts there.</p>
+    <button type="button" @click="unlink" class="rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Unlink Telegram</button>
+    {% else %}
+    <p class="text-sm text-soft mb-3">Get your weekly digest and low-balance alerts in Telegram. The link works once and expires in 30 minutes.</p>
+    <button type="button" @click="link" :disabled="busy" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-3 py-2 text-sm">Link Telegram</button>
+    <div x-show="out" x-cloak style="display:none" class="mt-3 text-sm space-y-1">
+      <template x-if="out && out.url"><p>Open <a :href="out.url" target="_blank" rel="noopener" class="text-accent underline break-all" x-text="out.url"></a> and press <strong>Start</strong>.</p></template>
+      <template x-if="out && !out.url"><p>No bot username is configured. Send <code x-text="'/start ' + out.token"></code> to your FinPilot bot.</p></template>
+      <p x-show="out && !out.bot_configured" class="text-muted">No bot token is configured on this server: Telegram messages are written to the outbox (log sink) instead.</p>
+    </div>
+    {% endif %}
+    <p x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="mt-2 text-sm text-neg"></p>
+  </section>
+  <section aria-labelledby="data-h" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="data-h" class="font-semibold mb-2">Your data</h2>
+    <p class="text-sm text-soft mb-3">Download everything FinPilot stores about you as one JSON file: profile, settings, transactions, categories, recurring items, goals, advice and its reasoning, memories, chats, digests and alerts.</p>
+    <a href="/me/export" class="inline-block rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Download my data (JSON)</a>
+    <details class="mt-5 rounded-xl ring-1 ring-rose-200 dark:ring-rose-900 p-4" {% if del_error %}open{% endif %}>
+      <summary class="cursor-pointer text-sm font-medium text-neg">Delete my account</summary>
+      <p class="mt-2 text-sm text-soft">This permanently deletes your account and all of its data. It cannot be undone; download your data first if you want a copy.</p>
+      {% if del_error %}<p role="alert" class="mt-2 text-sm text-neg">{{ del_error }}</p>{% endif %}
+      <form method="post" action="/web/account/delete" class="mt-3 space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="block text-sm">Password<input type="password" name="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <label class="block text-sm">Type <code class="rounded bg-slate-100 dark:bg-slate-800 px-1 font-mono font-semibold">DELETE</code> to confirm<input name="confirm" required autocomplete="off" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+        <button class="rounded-lg bg-rose-700 hover:bg-rose-800 text-white px-4 py-2 text-sm">Delete my account permanently</button>
+      </form>
+    </details>
+  </section>
+  <section aria-labelledby="memory-h" class="bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+    <h2 id="memory-h" class="font-semibold mb-2">Memory &amp; privacy</h2>
+    <p class="text-sm text-soft mb-3">FinPilot remembers plans and preferences you mention in chat, and how you responded to advice, to personalise answers. You can see, edit and delete all of it.</p>
+    <a href="/app/memory" class="inline-block rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Manage what FinPilot remembers</a>
+  </section>
+</div>
+{% endblock %}

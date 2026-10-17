@@ -1,0 +1,67 @@
+{# Global Add expense / Add income modal (Alpine component txnModal in /static/js/txn-modal.js) #}
+<div x-data="txnModal" x-show="open" x-cloak class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-slate-900/50"
+     @keydown.escape.window="open = false" role="dialog" aria-modal="true" aria-labelledby="txn-modal-title" style="display:none">
+  <form @submit.prevent="submit" @click.outside="open = false"
+        class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl ring-1 ring-slate-200 dark:ring-slate-800 p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="txn-modal-title" class="text-lg font-semibold" x-text="f.kind === 'income' ? 'Add income' : 'Add expense'"></h2>
+      <div class="inline-flex rounded-lg ring-1 ring-slate-300 dark:ring-slate-700 overflow-hidden text-sm" role="group" aria-label="Type">
+        <button type="button" @click="f.kind = 'expense'; f.category_id = ''" :class="f.kind === 'expense' ? 'bg-rose-600 text-white' : ''" class="px-3 py-1">Expense</button>
+        <button type="button" @click="f.kind = 'income'; f.category_id = ''" :class="f.kind === 'income' ? 'bg-emerald-600 text-white' : ''" class="px-3 py-1">Income</button>
+      </div>
+    </div>
+    <div x-show="error" class="mb-3 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm" role="alert" x-text="error"></div>
+    <div class="grid grid-cols-3 gap-3 mb-3">
+      <label class="col-span-2 text-sm">Amount
+        <input x-ref="amount" x-model="f.amount" type="number" min="0.01" step="0.01" required inputmode="decimal"
+               class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+      <label class="text-sm">Currency
+        <select x-model="f.currency" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+          <option value="">Default</option>
+          <template x-for="c in currencies" :key="c"><option :value="c" x-text="c"></option></template>
+        </select></label>
+    </div>
+    <p x-show="fxPreview" class="-mt-1 mb-3 text-xs text-muted" x-text="fxPreview" aria-live="polite"></p>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <label class="text-sm">Date
+        <input x-model="f.date" type="date" x-datepicker required class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+      <label class="text-sm">Account
+        <select x-model="f.account_id" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+          <option value="">None</option>
+          <template x-for="a in accounts" :key="a.id"><option :value="a.id" x-text="a.name + ' (' + a.currency + ')'"></option></template>
+        </select></label>
+    </div>
+    <label class="block text-sm mb-1">Description / merchant
+      <input x-model="f.description" required maxlength="500" placeholder="e.g. Swiggy, Starbucks, Rent"
+             class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <div class="flex flex-wrap gap-1 mb-3 min-h-[1.5rem]">
+      <template x-for="s in suggestions" :key="s.category_id">
+        <button type="button" @click="pick(s)" class="text-xs rounded-full px-2 py-0.5 ring-1 ring-slate-300 dark:ring-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <span x-text="(s.icon || '') + ' ' + s.name"></span></button>
+      </template>
+    </div>
+    <label class="block text-sm mb-3">Category
+      <select x-model="f.category_id" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-2">
+        <option value="">Let FinPilot decide</option>
+        <template x-for="c in filteredCategories()" :key="c.id"><option :value="c.id" x-text="(c.icon || '') + ' ' + c.name"></option></template>
+      </select></label>
+    <label class="block text-sm mb-3">Notes
+      <input x-model="f.notes" maxlength="1000" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2"></label>
+    <label class="flex items-center gap-2 text-sm mb-2"><input type="checkbox" x-model="f.repeat"> Repeat this</label>
+    <div x-show="f.repeat" class="grid grid-cols-3 gap-3 mb-3">
+      <label class="text-sm">Every
+        <input x-model="f.interval" type="number" min="1" max="52" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5"></label>
+      <label class="text-sm">Frequency
+        <select x-model="f.frequency" class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5">
+          <option value="daily">day(s)</option><option value="weekly">week(s)</option><option value="biweekly">2 weeks</option>
+          <option value="monthly">month(s)</option><option value="quarterly">quarter(s)</option><option value="yearly">year(s)</option>
+        </select></label>
+      <label class="text-sm">Until (optional)
+        <input x-model="f.end_date" type="date" x-datepicker class="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1.5"></label>
+    </div>
+    <div class="flex justify-end gap-2 mt-4">
+      <button type="button" @click="open = false" class="rounded-lg px-4 py-2 text-sm ring-1 ring-slate-300 dark:ring-slate-700">Cancel</button>
+      <button type="submit" :disabled="saving" class="rounded-lg bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-sm disabled:opacity-50" x-text="saving ? 'Saving…' : 'Save'"></button>
+    </div>
+  </form>
+</div>

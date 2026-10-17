@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
+{% from "partials/sample_data.html" import sample_data %}
+{% block title %}Dashboard{% endblock %}
+{% block head_scripts %}
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script defer src="/static/js/dashboard.js"></script>
+<script src="/static/js/inbox.js"></script>
+{% endblock %}
+{% block content %}
+{% set cur = d.reporting_currency %}
+{% set k = d.kpis %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Hi {{ user.name }} 👋</h1>
+    <p class="text-sm text-muted">{{ d.period_label }} · amounts in {{ cur }}</p>
+  </div>
+  <details class="relative" x-data @click.outside="$el.removeAttribute('open')">
+    <summary class="list-none flex cursor-pointer items-center gap-2 rounded-lg bg-white dark:bg-slate-900 ring-1 ring-slate-300 dark:ring-slate-700 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 [&::-webkit-details-marker]:hidden" aria-label="Period: {{ d.period_label }}">
+      {{ icon("calendar", "h-4 w-4 text-muted") }}<span>{{ d.period_label }}</span>{{ icon("chevron", "h-4 w-4 text-muted") }}</summary>
+    <nav aria-label="Period" class="absolute right-0 z-30 mt-1 w-44 rounded-lg bg-white dark:bg-slate-900 p-1 text-sm shadow-lg ring-1 ring-slate-200 dark:ring-slate-700">
+      {% for key, label in periods.items() %}
+      <a href="/?period={{ key }}" class="flex items-center justify-between rounded-md px-3 py-1.5 {{ 'bg-brand-50 dark:bg-brand-500/15 text-accent font-medium' if key == d.period else 'hover:bg-slate-100 dark:hover:bg-slate-800' }}" {% if key == d.period %}aria-current="page"{% endif %}>{{ label }}{% if key == d.period %}{{ icon("check", "h-4 w-4") }}{% endif %}</a>
+      {% endfor %}
+    </nav>
+  </details>
+</div>
+
+{% macro delta(pct, good_when_up) -%}
+{% if pct is not none and pct == 0 %}<span class="text-xs text-muted">Same as previous period</span>
+{% elif pct is not none %}
+{% set up = pct > 0 %}{% set good = (up and good_when_up) or ((not up) and (not good_when_up)) %}
+<span class="text-xs {{ 'text-pos' if good else 'text-neg' }}">{{ '▲' if up else '▼' }} {{ pct|abs }}% vs previous period</span>
+{% else %}<span class="text-xs text-muted">No previous data</span>{% endif %}
+{%- endmacro %}
+
+<section aria-labelledby="kpi-h" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <h2 id="kpi-h" class="sr-only">Key figures</h2>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4">
+    <div class="eyebrow">Balance</div>
+    <div class="mt-1 text-xl font-semibold">{{ k.balance|money(cur) }}</div>
+    <span class="text-xs text-muted">{{ 'Includes approximate conversions' if k.balance_approximate else 'All accounts' }}</span>
+  </div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4">
+    <div class="eyebrow">Income</div>
+    <div class="mt-1 text-xl font-semibold text-pos">{{ k.income|money(cur) }}</div>
+    {{ delta(k.income_delta_pct, true) }}
+  </div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4">
+    <div class="eyebrow">Spend</div>
+    <div class="mt-1 text-xl font-semibold text-neg">{{ k.spend|money(cur) }}</div>
+    {{ delta(k.spend_delta_pct, false) }}
+  </div>
+  <div class="rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-4">
+    <div class="eyebrow">Savings rate</div>
+    <div class="mt-1 text-xl font-semibold">{{ (k.savings_rate ~ '%') if k.savings_rate is not none else '—' }}</div>
+    <span class="text-xs text-muted">Net {{ k.net|money(cur) }}{% if k.savings_rate_prev is not none %} · previously {{ k.savings_rate_prev }}%{% endif %}</span>
+  </div>
+</section>
+
+<section aria-labelledby="qa-h" class="mb-6">
+  <h2 id="qa-h" class="eyebrow mb-2">Quick add</h2>
+  <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    {% set tile = "flex flex-col items-center gap-2 rounded-xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 px-3 py-4 text-sm font-medium hover:ring-brand-500 dark:hover:ring-brand-400 transition" %}
+    {% set dot = "grid h-9 w-9 place-items-center rounded-full" %}
+    <button type="button" data-add-txn="expense" class="{{ tile }}"><span class="{{ dot }} bg-rose-50 dark:bg-rose-500/15 text-neg">{{ icon("arrow-up") }}</span>Expense</button>
+    <button type="button" data-add-txn="income" class="{{ tile }}"><span class="{{ dot }} bg-emerald-50 dark:bg-emerald-500/15 text-pos">{{ icon("arrow-down") }}</span>Income</button>
+    <a href="/app/import" class="{{ tile }}"><span class="{{ dot }} bg-brand-50 dark:bg-brand-500/15 text-accent">{{ icon("upload") }}</span>Import</a>
+    <a href="/app/chat" class="{{ tile }}"><span class="{{ dot }} bg-amber-50 dark:bg-amber-500/15 text-warn">{{ icon("spark") }}</span>Ask FinPilot</a>
+  </div>
+</section>
+{% for a in alerts %}
+<div id="alert-{{ a.id }}" x-data="inboxAlerts" role="alert" class="mb-4 flex items-center gap-3 rounded-lg ring-1 px-3 py-2 text-sm {{ 'bg-rose-50 ring-rose-200 text-rose-900 dark:bg-rose-900/30 dark:ring-rose-800 dark:text-rose-100' if a.severity == 'critical' else 'bg-amber-50 ring-amber-200 text-amber-900 dark:bg-amber-900/30 dark:ring-amber-800 dark:text-amber-100' }}">
+  {{ icon("warn", "h-4 w-4 flex-none") }}
+  <p class="min-w-0 flex-1 truncate" title="{{ a.body }}"><strong>{{ a.title }}.</strong> <span class="hidden md:inline">{{ a.body }}</span></p>
+  <a href="/app/forecast" class="whitespace-nowrap font-medium underline">View forecast</a>
+  <button type="button" @click='read({{ a.id|string|tojson }}); $el.closest("[role=alert]").remove()' class="flex-none rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10" aria-label="Dismiss alert" title="Dismiss">{{ icon("x", "h-4 w-4") }}</button>
+</div>
+{% endfor %}
+{% if last_run and last_run.degraded and last_run.status == 'succeeded' %}
+<div role="status" class="mb-6 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-4 py-3 text-sm">
+  <strong>Degraded mode.</strong> The last refresh ({{ last_run.started_at.strftime('%d %b %H:%M') }}) ran without the AI service ({{ last_run.degraded_reason }}): categories come from rules only and advice uses standard wording. {% if user.role == "admin" %}<a class="underline" href="/app/pipeline?run={{ last_run.id }}">See the pipeline trace</a>.{% endif %}
+</div>
+{% endif %}
+{% if d.counts.transactions == 0 %}
+<div class="mb-6">{{ sample_data(sample) }}</div>
+<section aria-labelledby="onb-h" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-6 mb-6">
+  <h2 id="onb-h" class="text-lg font-semibold mb-1">Get started</h2>
+  <p class="text-sm text-muted mb-4">FinPilot needs a few weeks of transactions to find patterns, forecast your cash flow and suggest savings.</p>
+  <ol class="space-y-3">
+    {% for step in checklist %}
+    <li class="flex items-start gap-3">
+      <span class="mt-0.5 h-5 w-5 flex-none rounded-full text-xs flex items-center justify-center {{ 'bg-emerald-500 text-white' if step.done else 'ring-1 ring-slate-300 dark:ring-slate-600' }}" aria-hidden="true">{{ '✓' if step.done else loop.index }}</span>
+      <div>
+        <div class="font-medium {{ 'line-through text-muted' if step.done }}">{% if step.href and not step.done %}<a class="text-accent hover:underline" href="{{ step.href }}">{{ step.title }}</a>{% else %}{{ step.title }}{% endif %}{% if not step.done and not step.available %} <span class="badge ml-1 bg-slate-100 dark:bg-slate-800 text-muted">Coming soon</span>{% endif %}</div>
+        <div class="text-sm text-muted">{{ step.detail }}</div>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% else %}
+{% if not sample.loaded and d.counts.transactions < 30 %}<div class="mb-6">{{ sample_data(sample) }}</div>{% endif %}
+{% if recs and recs.recommendations %}
+<section aria-labelledby="recs-h" class="mb-6 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+  <div class="flex items-center justify-between mb-3">
+    <h2 id="recs-h" class="font-semibold">Top recommendations{% if recs.stale %} <span class="ml-1 text-xs font-normal italic text-warn">Your data changed since this advice; refresh it on the Advice page.</span>{% endif %}</h2>
+    <a href="/app/advice" class="text-sm text-accent hover:underline">All advice →</a>
+  </div>
+  <ol class="space-y-2 text-sm">
+    {% for r in recs.recommendations[:3] %}
+    <li class="flex flex-wrap items-baseline gap-2"><span class="text-xs text-muted">{{ r.priority }}.</span>
+      <span class="font-medium">{{ r.title }}</span>{% if r.est_monthly_impact > 0 %}<span class="text-pos text-xs">{{ r.est_monthly_impact|money(r.currency) }}/month</span>{% endif %}
+      <a class="text-xs text-accent hover:underline" href="/app/advice#rec-{{ r.id }}">Why?</a></li>
+    {% endfor %}
+  </ol>
+</section>
+{% elif d.counts.transactions %}
+<p class="mb-6 text-sm text-muted"><a class="text-accent hover:underline" href="/app/advice">Get personalised advice →</a></p>
+{% endif %}
+{% if fc and month_end %}
+<section aria-labelledby="pme-h" class="mb-6 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 id="pme-h" class="font-semibold">Projected balance on {{ month_end.date[8:] }} {{ fc.dates[0].strftime('%b') if month_end.date[:7] == fc.dates[0].isoformat()[:7] else '' }}{{ month_end.date[:7] if month_end.date[:7] != fc.dates[0].isoformat()[:7] else '' }}</h2>
+    <a href="/app/forecast" class="text-sm text-accent hover:underline">Forecast &amp; what-if →</a>
+  </div>
+  {% if fc.low_confidence %}<p role="status" class="mt-2 text-xs rounded bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 px-2 py-1">Low-confidence forecast: only {{ fc.months_of_data }} months of history, so the range is wide.</p>{% endif %}
+  {% set lo, mid, hi = month_end.p10|float, month_end.p50|float, month_end.p90|float %}
+  {% set span = (hi - lo) if hi > lo else 1 %}
+  <div class="mt-3 flex flex-wrap items-end gap-6 text-sm">
+    <div><div class="eyebrow">Bad case</div><div class="font-semibold {{ 'text-neg' if month_end.p10 < fc.buffer }}">{{ month_end.p10|money(fc.currency) }}</div></div>
+    <div><div class="eyebrow">Typical</div><div class="text-xl font-semibold">{{ month_end.p50|money(fc.currency) }}</div></div>
+    <div><div class="eyebrow">Good case</div><div class="font-semibold">{{ month_end.p90|money(fc.currency) }}</div></div>
+    <div class="flex-1 min-w-[12rem]" aria-hidden="true">
+      <div class="relative h-2 rounded bg-indigo-100 dark:bg-indigo-900/40"><div class="absolute -top-1 h-4 w-1 rounded bg-indigo-600" style="left: {{ ((mid - lo) / span * 100)|round(1) }}%"></div></div>
+      <div class="mt-1 text-xs text-muted">{{ (fc.outcome.p_below_buffer * 100)|round|int }}% chance of dipping below your {{ fc.buffer|money(fc.currency) }} cushion in the next {{ fc.horizon }} days</div>
+    </div>
+  </div>
+</section>
+{% endif %}
+<div class="grid lg:grid-cols-3 gap-6 mb-6">
+  <section aria-labelledby="trend-h" class="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+    <h2 id="trend-h" class="font-semibold mb-3">Spending trend <span class="qualifier">· Monthly</span></h2>
+    <div class="h-64"><canvas id="trend-chart" aria-label="Monthly income and spend chart" role="img"></canvas></div>
+  </section>
+  <section aria-labelledby="cat-h" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+    <h2 id="cat-h" class="font-semibold mb-3">Where it went <span class="qualifier">· {{ d.period_label }}</span></h2>
+    {% if d.breakdown %}
+    <div class="h-64"><canvas id="category-chart" aria-label="Spend by category chart" role="img"></canvas></div>
+    {% else %}<p class="text-sm text-muted">No spending in this period.</p>{% endif %}
+  </section>
+</div>
+
+<div class="grid lg:grid-cols-3 gap-6">
+  <section aria-labelledby="recent-h" class="lg:col-span-2 rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 id="recent-h" class="font-semibold">Recent transactions</h2>
+      <a href="/app/transactions" class="text-sm text-accent hover:underline">View all →</a>
+    </div>
+    <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for t in d.recent %}
+      <li class="py-2 flex items-center gap-3 text-sm">
+        <span class="h-2.5 w-2.5 rounded-full flex-none" style="background: {{ t.category_color or '#cbd5e1' }}" aria-hidden="true"></span>
+        <div class="flex-1 min-w-0">
+          <div class="truncate">{{ t.description }}</div>
+          <div class="text-xs text-muted">{{ t.date|day }} · {{ t.category_name or 'Uncategorized' }}</div>
+        </div>
+        <div class="text-right {{ 'text-pos' if t.amount > 0 else '' }}">
+          {{ t.amount_reporting|money(cur) }}
+          {% if t.currency != cur %}<div class="text-xs text-muted">{{ t.amount|money(t.currency) }}</div>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section aria-labelledby="upcoming-h" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 id="upcoming-h" class="font-semibold">Next 14 days</h2>
+      <a href="/app/recurring" class="text-sm text-accent hover:underline">Recurring →</a>
+    </div>
+    {% if d.upcoming %}
+    <ul class="space-y-2 text-sm">
+      {% for u in d.upcoming %}
+      <li class="flex justify-between gap-2"><span class="truncate">{{ u.date.strftime('%d %b') }} · {{ u.description }}{% if u.estimated %} <span class="note text-xs" title="Detected from your history, not declared">expected</span>{% endif %}</span>
+        <span class="{{ 'text-pos' if u.kind == 'income' else 'text-neg' }} whitespace-nowrap">{{ '+' if u.kind == 'income' else '−' }}{{ u.amount|money(u.currency) }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-muted">No bills or incomes scheduled. <a href="/app/recurring" class="text-accent hover:underline">Add a recurring item</a>.</p>{% endif %}
+    {% if d.counts.needs_review %}<p class="mt-4 text-xs text-amber-700 dark:text-amber-300"><a class="underline" href="/app/transactions?needs_review=true">{{ d.counts.needs_review }} transactions need your review</a>: the AI wasn't confident enough to pick a category.</p>
+    {% elif d.counts.uncategorized %}<p class="mt-4 text-xs text-muted">{{ d.counts.uncategorized }} transactions are being categorized in the background. Refresh in a moment.</p>{% endif %}
+  </section>
+</div>
+<script type="application/json" id="fp-dashboard">{{ chart|tojson }}</script>
+{% endif %}
+{% endblock %}

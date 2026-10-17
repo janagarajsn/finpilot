@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Memory{% endblock %}
+{% block head_scripts %}<script src="/static/js/memory.js"></script>{% endblock %}
+{% block content %}
+<script type="application/json" id="memory-state">{{ memories|tojson }}</script>
+<div x-data="memoryPage">
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-semibold">What FinPilot remembers</h1>
+    <p class="text-sm text-muted max-w-3xl">Things you told FinPilot in chat (plans, preferences, decisions) and how you responded to advice. FinPilot uses them to personalise answers and advice; it never stores account numbers or passwords. Edit, pin (always use) or delete anything; deleting removes it for good.</p>
+  </div>
+  <button type="button" @click="wipe" :disabled="busy || active().length + inactive().length === 0" class="rounded-lg ring-1 ring-rose-300 dark:ring-rose-800 text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-3 py-2 text-sm">Forget everything</button>
+</div>
+<div x-show="error" x-text="error" role="alert" x-cloak style="display:none" class="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-200 px-3 py-2 text-sm"></div>
+
+<section class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5 mb-6" aria-labelledby="mem-h">
+  <h2 id="mem-h" class="font-semibold mb-3">In use <span class="text-sm font-normal text-muted" x-text="'(' + active().length + ')'"></span></h2>
+  {% if pending %}<p role="status" class="mb-3 rounded-lg bg-brand-50 dark:bg-brand-500/15 px-3 py-2 text-sm text-soft">{{ pending }} recent conversation{{ 's' if pending != 1 }} will be checked for things to remember about 15–30 minutes after {{ 'it goes' if pending == 1 else 'they go' }} quiet.</p>{% endif %}
+  <div x-show="active().length === 0" class="text-sm text-muted space-y-2">
+    <p>Nothing yet. FinPilot keeps only what you <em>tell</em> it about yourself in <a href="/app/chat" class="text-accent hover:underline">Chat</a>, for example:</p>
+    <ul class="list-disc pl-5"><li>plans and goals: “I'm saving for a trip to Japan next May”</li><li>preferences: “Netflix is shared with my family, don't suggest cancelling it”</li><li>circumstances: “I sold my car”, and how you respond to advice</li></ul>
+    <p>Questions (“how much did I spend on dining?”) and the figures FinPilot computes are not stored: they are looked up fresh from your data each time.</p>
+  </div>
+  <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+    <template x-for="m in active()" :key="m.id">
+      <li class="py-3 flex flex-wrap items-start gap-3">
+        <span class="rounded px-1.5 py-0.5 text-xs bg-slate-100 dark:bg-slate-800 text-soft" x-text="kinds[m.kind] || m.kind"></span>
+        <div class="flex-1 min-w-[12rem]">
+          <template x-if="editing !== m.id"><p class="text-sm" x-text="m.text"></p></template>
+          <template x-if="editing === m.id">
+            <form @submit.prevent="save(m)" class="flex gap-2">
+              <label :for="'edit-' + m.id" class="sr-only">Edit memory</label>
+              <input :id="'edit-' + m.id" x-model="draft" maxlength="500" class="flex-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-sm">
+              <button class="rounded-lg bg-brand-600 text-white px-3 text-sm">Save</button>
+              <button type="button" @click="editing = null" class="text-sm text-muted">Cancel</button>
+            </form>
+          </template>
+          <p class="text-xs text-muted mt-0.5" x-text="meta(m)"></p>
+        </div>
+        <div class="flex gap-3 text-sm">
+          <button type="button" @click="pin(m)" :aria-pressed="m.pinned" class="hover:underline" :class="m.pinned ? 'text-accent font-medium' : 'text-muted'" x-text="m.pinned ? 'Pinned' : 'Pin'"></button>
+          <button type="button" @click="editing = m.id; draft = m.text" class="text-muted hover:underline">Edit</button>
+          <button type="button" @click="remove(m)" class="text-neg hover:underline">Delete</button>
+        </div>
+      </li>
+    </template>
+  </ul>
+</section>
+
+<section x-show="inactive().length" class="rounded-2xl bg-white dark:bg-slate-900 ring-1 ring-slate-200 dark:ring-slate-800 p-5" aria-labelledby="old-h">
+  <h2 id="old-h" class="font-semibold mb-1">History</h2>
+  <p class="text-sm text-muted mb-3">Replaced by something newer or expired; not used any more.</p>
+  <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+    <template x-for="m in inactive()" :key="m.id">
+      <li class="py-2 flex items-start gap-3 text-sm text-muted">
+        <span class="flex-1 line-through" x-text="m.text"></span>
+        <button type="button" @click="remove(m)" class="text-neg hover:underline">Delete</button>
+      </li>
+    </template>
+  </ul>
+</section>
+</div>
+{% endblock %}

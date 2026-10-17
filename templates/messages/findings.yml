@@ -1,0 +1,163 @@
+# Deterministic finding text (Jinja, plain text). Variables come from Finding.data plus
+# `f` (the finding). `money(x, cur)` formats with the currency's locale (₹1,25,000 / $1,250.00).
+# Every body states the metric, the baseline, the observed value and the threshold crossed.
+# Never claim a subscription is "unused": only "likely low value (heuristic)" or "you rated it".
+
+duplicate_charge:
+  title: "Possible duplicate charge: {{ merchant }}"
+  body: >-
+    {{ money(amount, currency) }} was charged {{ count }} times at {{ merchant }} {% if span_days == 0 %}on the same day{% elif span_days == 1 %}within 1 day{% else %}within {{ span_days }} days{% endif %}
+    ({{ dates }}). Rule: same merchant and same amount within {{ window_days }} days. If this was
+    not intended, ask the merchant for a refund.
+
+merchant_outlier:
+  title: "Unusually large charge at {{ merchant }}"
+  body: >-
+    {{ money(observed, currency) }} on {{ date }} vs a typical {{ money(baseline, currency) }} at this merchant
+    (median of {{ history_n }} other charges): {{ ratio }}× the usual amount, robust z-score {{ z }}
+    (threshold {{ z_threshold }} and ≥ {{ min_ratio }}×).
+
+category_outlier:
+  title: "Unusually large {{ category }} purchase"
+  body: >-
+    {{ money(observed, currency) }} at {{ merchant }} on {{ date }} vs a typical {{ money(baseline, currency) }}
+    for {{ category }} (median of {{ history_n }} charges): {{ ratio }}× the usual amount, robust z-score
+    {{ z }} (threshold {{ z_threshold }} and ≥ {{ min_ratio }}×).
+
+first_time_large:
+  title: "Large first-time payment: {{ merchant }}"
+  body: >-
+    {{ money(observed, currency) }} on {{ date }} is your first payment to {{ merchant }} and is above
+    {{ money(threshold, currency) }} (the larger of {{ floor_x }}× the {{ money(min_anomaly, currency) }}
+    anomaly floor and your {{ percentile }}th-percentile purchase).
+
+price_hike:
+  title: "Price increase: {{ merchant }}"
+  body: >-
+    {{ merchant }} went from {{ money(baseline, orig_currency) }} to {{ money(observed, orig_currency) }}
+    per {{ period_noun }} on {{ date }} (+{{ pct }}%, threshold {{ threshold_pct }}%). That is about
+    {{ money(annual_extra, currency) }} more per year.
+
+category_spike:
+  title: "{{ category }} spending spiked in {{ month_label }}"
+  body: >-
+    {{ money(observed, currency) }} on {{ category }} in {{ month_label }}{{ ' (so far)' if partial else '' }}
+    vs a median of {{ money(baseline, currency) }} over the previous {{ baseline_months }} months
+    (robust z-score {{ z }}, threshold {{ z_threshold }}; {{ money(excess, currency) }} above usual).
+
+category_trend_up:
+  title: "{{ category }} is trending up"
+  body: >-
+    {{ money(observed, currency) }} on {{ category }} in {{ month_label }} vs a {{ money(baseline, currency) }}
+    average over the 3 months before (+{{ pct }}%, threshold +{{ threshold_pct }}%).
+
+weekend_spending:
+  title: "You spend more on weekends"
+  body: >-
+    Discretionary spend averages {{ money(weekend_daily, currency) }} per weekend day vs
+    {{ money(weekday_daily, currency) }} per weekday ({{ ratio }}×, threshold {{ threshold }}×) over the
+    last {{ days }} days.
+
+payday_spike:
+  title: "Spending jumps right after payday"
+  body: >-
+    In the {{ window }} days after an income credit you spend {{ money(after_payday, currency) }} on
+    average vs {{ money(typical_window, currency) }} in a typical {{ window }}-day window ({{ ratio }}×,
+    threshold {{ threshold }}×), across {{ paydays }} paydays.
+
+impulse_proxy:
+  title: "Frequent impulse-type purchases"
+  body: >-
+    {{ count }} purchases in impulse-prone categories ({{ categories }}) in the last {{ days }} days,
+    {{ per_week }} per week, totalling {{ money(total, currency) }} ({{ share }}% of discretionary spend).
+    This is a proxy: FinPilot has dates but not times of day.
+
+concentration:
+  title: "{{ category }} dominates your discretionary spend"
+  body: >-
+    {{ category }} is {{ share }}% of discretionary spend over the last {{ days }} days
+    ({{ money(amount, currency) }} of {{ money(total, currency) }}; threshold {{ threshold }}%).
+
+savings_rate_trend:
+  title: "Your savings rate is falling"
+  body: >-
+    Savings rate averaged {{ early }}% in {{ early_label }} and {{ late }}% in {{ late_label }}
+    ({{ drop }} points lower; threshold {{ threshold }} points).
+
+latte_factor:
+  title: "Small purchases add up"
+  body: >-
+    {{ count }} purchases of {{ money(ceiling, currency) }} or less in the last {{ days }} days came to
+    {{ money(total, currency) }} ({{ share }}% of spend, threshold {{ threshold }}%), about
+    {{ money(annualized, currency) }} a year.
+
+subscription_overlap:
+  title: "Overlapping {{ group_label }} subscriptions"
+  body: >-
+    You pay for {{ names }} ({{ money(monthly_total, currency) }} per month together). Overlap is
+    detected from merchant names; keep the one you use most.
+
+subscription_low_value:
+  title: "{{ merchant }}: {{ 'you rated it rarely used' if basis == 'user_rating' else 'likely low value (heuristic)' }}"
+  body: >-
+    {% if basis == 'user_rating' %}You said you use {{ merchant }} {{ 'never' if rating == 0 else 'rarely' }}. It costs
+    {{ money(monthly, currency) }} per month ({{ money(annual, currency) }} a year).{% else %}{{ merchant }}
+    costs {{ money(monthly, currency) }} per month, {{ multiple }}× your median subscription
+    ({{ money(median, currency) }}), and you have not rated how often you use it. This is a heuristic, not
+    a usage measurement: rate it to sharpen advice.{% endif %}
+
+fx_exposure:
+  title: "Foreign-currency spending: {{ share }}% of spend"
+  body: >-
+    {{ money(foreign_spend, currency) }} of {{ money(total_spend, currency) }} spent in the last {{ days }} days
+    was in {{ currencies }}.{% if fx_effect_month is not none %} Exchange-rate moves since each item
+    started changed its cost by {{ money(fx_effect_month, currency) }} per month.{% endif %}
+
+fx_series_effect:
+  title: "{{ merchant }} costs {{ 'more' if fx_effect > 0 else 'less' }} because of the exchange rate"
+  body: >-
+    {{ money(orig_amount, orig_currency) }} per {{ period_noun }} now costs {{ money(observed, currency) }}
+    vs {{ money(baseline, currency) }} at the first charge on {{ first_date }}: {{ money(fx_effect, currency) }}
+    from the rate ({{ rate_first }} → {{ rate_last }}){% if price_effect != 0 %} and
+    {{ money(price_effect, currency) }} from the price itself{% endif %}.
+
+fees_paid:
+  title: "Fees and interest: {{ money(total, currency) }} in {{ days }} days"
+  body: >-
+    {{ count }} bank fee or interest charges (largest at {{ merchant }}) came to {{ money(total, currency) }}
+    in the last {{ days }} days, about {{ money(monthly, currency) }} a month. These are usually avoidable.
+
+recurring_not_declared:
+  title: "{{ merchant }} repeats every {{ period_noun }}"
+  body: >-
+    {{ count }} charges of about {{ money(amount, currency) }} every {{ period_noun }}, next expected
+    {{ next_expected }}. It is not a declared recurring item yet; declaring it makes the forecast firmer.
+
+forecast_shortfall:
+  title: "Your balance may dip below your cushion by {{ date }}"
+  body: >-
+    In a bad case (10th percentile of the forecast) your balance falls to {{ money(min_p10, currency) }}
+    around {{ date }}, below your {{ money(buffer, currency) }} cushion; {{ p_below_buffer }}% of simulated
+    futures dip below it within {{ horizon }} days.
+
+goal_gap:
+  title: "{{ name }}: {{ {'behind': 'behind schedule', 'not_on_track': 'not on track', 'over': 'over the cap'}[status] }}"
+  body: >-
+    {% if kind == 'debt_payoff' %}{{ money(remaining, currency) }} of the debt still to repay{% if required_monthly is defined and required_monthly %}; about
+    {{ money(required_monthly, currency) }} a month is needed{% endif %} vs {{ money(monthly_payment, currency) }} a month in payments.{% elif kind == 'savings_target' %}{{ money(remaining, currency) }} still to save{% if required_monthly is defined and required_monthly %}; about
+    {{ money(required_monthly, currency) }} a month is needed{% endif %} vs projected savings of
+    {{ money(monthly_savings, currency) }} a month.{% else %}{{ category }} is projected at {{ money(projected, currency) }}
+    this month vs a {{ money(cap, currency) }} cap.{% endif %}
+
+planned_purchase_risk:
+  title: "Planned {{ label }} looks {{ 'risky' if verdict == 'risky' else 'unaffordable' }}"
+  body: >-
+    Your what-if for {{ money(amount, currency) }} on {{ date }} takes the bad-case balance down to
+    {{ money(min_p10, currency) }}.
+
+goal_ahead:
+  title: "{{ name }} is ahead of schedule"
+  body: >-
+    At {{ money(monthly_savings, currency) }} a month you reach {{ name }} around {{ eta }}{% if target_date %}, before the
+    {{ target_date }} target{% endif %}; {{ money(required_monthly, currency) }} a month would be enough, leaving
+    {{ money(surplus, currency) }} a month to spare.

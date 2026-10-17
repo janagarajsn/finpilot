@@ -1,0 +1,62 @@
+# AMENDMENT 1 — PostgreSQL-first schema, INR base currency with FX, MCP integration
+This amendment OVERRIDES BUILD_PROMPT.md wherever they conflict. Sections it replaces: "CURRENCY", rule 5/9 wording on SQLAlchemy, "DATA MODEL" header and the currency-related columns. Everything else stays.
+
+## A. DATABASE: PostgreSQL-FIRST
+1. PostgreSQL 16 (pgvector image) is the ONLY database and the source of truth. The schema is designed as Postgres, not as ORM objects: versioned migrations (Alembic) hold the real DDL, using Postgres-native features:
+   - `uuid` primary keys with `gen_random_uuid()` for user-facing entities; `bigint generated always as identity` for high-volume log tables (`llm_calls`, `agent_runs`, `eval_metrics`).
+   - Money as `NUMERIC(18,2)`, FX rates as `NUMERIC(18,8)`, `timestamptz` everywhere, `citext` for email, `JSONB` (with GIN indexes only where queried), CHECK constraints or Postgres ENUMs for status/kind columns, partial unique indexes (e.g. unique (user_id, hash), unique (rule_id, date)), `ON DELETE CASCADE` from users, pgvector HNSW for memory/semantic cache, `pg_trgm` for lexical fallback.
+   - Advisory locks for migrations, digest dispatch and single-flight jobs.
+2. **Row-Level Security (promoted from P2 to P1):** enable RLS on every user-owned table with policy `user_id = current_setting('app.user_id')::uuid`. The app connects as a NON-superuser, non-owner role; each request/task opens a transaction and runs `SET LOCAL app.user_id = '<uuid>'`. Repository-level `user_id` filtering stays (defense in depth). Add tests proving that a deliberately buggy query without a user filter still cannot see another user's rows. Admin/system jobs use a separate role with explicit, audited bypass.
+3. **Data access layer:** SQLAlchemy 2.x (psycopg3) is used only as the access layer. Heavy analytics (monthly/weekly category aggregates, trailing windows, recurring candidate grouping, payday-window sums) are written as plain SQL (CTEs, window functions, `date_trunc`, `generate_series`) in `finpilot/db/sql/*.sql` files loaded by a helper, not as Python strings; pandas/numpy handle statistics on the results. Views: `v_transactions_reporting` (see FX), plus helper views as needed.
+4. Add `make db-backup` / `make db-restore` (pg_dump/pg_restore) and document them in DEPLOY.md. Rename the "DATA MODEL (SQLAlchemy + Alembic)" section to "DATA MODEL (PostgreSQL schema)" in README/DESIGN_NOTES.
+
+## B. CURRENCY AND FX (replaces the old CURRENCY section)
+**Base currency is INR** (`BASE_CURRENCY=INR`). Supported currencies for now: INR, USD (YAML registry in `config/currencies.yml`; adding one = a YAML entry + checking the FX source supports it). New users default to INR.
+- Users have a `reporting_currency` (INR default | USD): the currency in which dashboards, analysis, forecasts, simulations, goals summaries and digests are shown. Transactions and accounts may be in ANY supported currency (the old "one currency per user, no FX" rule is removed). Changing reporting currency is a VIEW change: no data is relabeled; it invalidates answer caches.
+- **Schema changes**
+  - `users.currency` → `users.reporting_currency`.
+  - `accounts.currency`; `goals.currency` (progress is converted to the goal currency).
+  - `transactions`: keep `amount` (original, signed) and `currency` (original); add `fx_rate NUMERIC(18,8)` (original→INR; 1 for INR), `amount_inr NUMERIC(18,2)`, `fx_rate_date date`, `fx_source ['base'|'mcp'|'fallback_api'|'stale_db'|'pinned'|'user_override']`.
+  - `fx_rates(rate_date, quote_currency, rate_inr_per_unit NUMERIC(18,8), source, fetched_at)` UNIQUE (rate_date, quote_currency); `fx_fetch_log(id, requested_at, route ['mcp'|'http'|'db'|'pinned'], ok, latency_ms, error)`.
+  - View `v_transactions_reporting(user_id, …, amount_reporting)` converts `amount_inr` into the user's reporting currency using the rate for the transaction date, so INR→USD→INR round-trips are stable. All analyzer/forecaster/simulator/dashboard queries read this view.
+- **Conversion rules (all deterministic, in `finpilot/money.py` + `finpilot/fx/`):** `Decimal` math, round-half-even at boundaries; rate resolved at the TRANSACTION date, using the nearest previous available date for weekends/holidays; future-dated items (forecast, recurring, simulator) use the latest rate; a user may override the rate on one transaction (`fx_source='user_override'`). The LLM never converts or invents a rate.
+- **Fallback chain** (each step recorded in `fx_fetch_log` and surfaced in the UI): FX MCP server → direct HTTP to the same public source (no MCP) → latest stored `fx_rates` row (flag "stale" if > 3 days old) → pinned `config/fx_fallback.yml` (flag "approximate rates"). A banner/notice shows whenever rates are not live; the digest says so too.
+- **Rate backfill:** on import/manual entry, any missing dates are fetched in ONE range call, deduped, and stored. Celery task `refresh_fx_rates` runs twice daily and on startup if the latest rate is older than 1 day.
+- **Import template:** `currency` column is now optional and any supported currency is allowed (default = account currency, else reporting currency). Add optional `fx_rate` (rate to INR; overrides the lookup). The validation preview shows original amount, converted amount, rate used, rate date and source. XLSX data validation includes a currency dropdown.
+- **Manual entry:** currency selector; a live preview "≈ ₹1,002.40 at 83.52 (rate of 12 Mar)" via `GET /fx/convert`.
+- **UI display:** show original with the converted amount as secondary text ("$12.00 · ₹1,002.40") when they differ; "Rates as of <date> · source" in the footer; "approximate rates" banner when on the pinned fallback. Locale formatting by Babel per reporting currency (₹1,25,000.00 vs $125,000.00).
+- **Grounding guard:** the facts set contains original amount, converted amount, rate and rate date; the guard accepts converted figures only if they appear in facts. Prompts receive reporting currency, symbol, locale and `fx_asof` as variables. Keep the support for ₹/Rs/INR/$/USD and lakh/crore.
+- **Caching:** answer-cache keys also include `reporting_currency` and `fx_asof` (date of the newest rate used) for users who have any foreign-currency data.
+- **Forecast/simulator:** foreign-currency recurring items are converted at the latest rate; P1: add FX volatility (from stored historical rate returns) as an extra Monte Carlo perturbation for such items. The NL simulator accepts amounts in any supported currency ("can I afford a $1,200 trip next month?" for an INR user), converted via the FX client at the latest rate with the rate stated in the answer.
+- **New analyzer finding `fx_exposure` (P1):** share of spend in foreign currency and the reporting-currency effect of rate moves since each charge (for example, "your USD subscriptions cost ₹X more this month than at sign-up due to the rate"). It is computed deterministically and can feed advisor candidates.
+- Remove "no FX" from README limitations; instead state: rates are daily reference rates, not your bank's card rate; use the per-transaction override for exact amounts.
+
+## C. MCP INTEGRATION
+Use MCP only where it adds real value; justify each use in DESIGN_NOTES.md. Two separate categories:
+
+### C1. Runtime MCP (inside the product)
+- Package `finpilot/mcp/`: `client.py` (official `mcp` Python SDK; async; timeouts, retries with backoff, circuit breaker, connection reuse; every tool call is a Langfuse span tagged `mcp:<server>.<tool>`; results cached in Redis), `registry.py` + `config/mcp_servers.yml` (name, transport `streamable_http|stdio`, url/command, enabled, timeout, **`allowed_tools` allowlist** — any tool not allowlisted cannot be called).
+- MCP tool outputs are untrusted data: validate against Pydantic schemas, apply the prompt-injection rules, never pass raw tool output into prompts without the `<data>` delimiters.
+- MCP calls are not LLM calls, so Mesh rule 1 is unaffected. When an LLM agent loop (chat agent) triggers an MCP-backed tool, the LLM call still goes through Mesh and OUR code executes the MCP tool.
+- **FX MCP server (P0):** ship `mcp_servers/fx/` as a small FastMCP server (streamable HTTP) run as compose service `fx-mcp` with a healthcheck, exposing tools: `get_rate(base, quote, date?)`, `get_rates_range(base, quotes[], start, end)`, `convert(amount, from, to, date?)`, `list_supported_currencies()`. Data source: a free, key-less reference-rate API with historical dates (verify current docs in Phase 0; Frankfurter/ECB is the first candidate; confirm it serves INR and USD and the historical endpoints). Record the verified source in DESIGN_NOTES.md; if unsuitable, pick another free source and document why. The server itself contains the HTTP source adapter; the app's direct-HTTP fallback reuses the same provider module.
+- Also search for existing third-party currency MCP servers; document the evaluation. Our own server stays the default (reliability, testability, no third-party trust); the registry makes swapping one in a config change.
+- Chat agent tool `convert_currency(amount, from, to, date?)` is backed by the FX client. Do NOT add MCP for Telegram/SMTP delivery or other places where a plain adapter is simpler.
+- Roadmap only (document, don't build): bank-statement/Account Aggregator MCP connectors.
+
+### C2. Dev-time MCP (for Claude Code while building; NOT part of the app)
+Commit a `.mcp.json` and a "Dev tooling" section in CLAUDE.md. Look up the exact current install commands in each project's official docs before adding them:
+- an up-to-date library-docs MCP (for example Context7) for FastAPI, LangGraph, Langfuse v3, Celery, mcp SDK, pgvector docs;
+- a Postgres MCP pointed at the LOCAL dev database, READ-ONLY credentials, to inspect schema/RLS/query plans;
+- Playwright MCP for UI smoke tests of the wizard/dashboard;
+- the Langfuse docs MCP if it exists (verify), and GitHub MCP for CI/PR work.
+Never put secrets in `.mcp.json`; use environment variables.
+
+## D. KNOCK-ON CHANGES
+- **Stack/deps:** add `mcp`, `fastmcp`, `respx` (HTTP mocking). Compose adds `fx-mcp` (depends_on healthy, env `FX_MCP_URL`); app/worker/beat wait for it but run (degraded to the fallback chain) if it is down.
+- **Config:** `BASE_CURRENCY=INR`, `FX_MCP_URL`, `FX_SOURCE_BASE_URL`, `FX_STALE_AFTER_DAYS=3`, `config/fx_fallback.yml` (pinned, clearly labeled approximate).
+- **Observability:** FX/MCP calls appear as spans; `fx_source` is attached to traces of answers that used conversion; a score `fx_live` (1 live, 0 fallback).
+- **Evaluation (new suite 9: FX and MCP):** conversion correctness against a fixed reference rate table, INR↔USD round-trip identity within 0.01, weekend/holiday date resolution, full fallback-chain behavior with simulated MCP outage / HTTP outage / stale DB (assert the right `fx_source` and the UI flag), MCP contract tests against the FX server, allowlist enforcement, circuit breaker opens and recovers, grounding of converted numbers, `fx_exposure` correctness. The synthetic generator emits a seeded synthetic FX series (so evals never touch the network), with ground truth from the same series; add personas: INR user with USD subscriptions (for example an AI tool and a cloud bill) and a USD user paying INR rent/remittances. Results go to Postgres and Langfuse like every other suite and appear on the Evaluation screen as an "FX & MCP" tab.
+- **Tests:** MCP client against an in-process FastMCP server; allowlist; timeouts/retries; Redis caching of rate lookups; RLS test; multi-currency import round trip (template with mixed currencies); manual entry with preview.
+- **API additions:** `GET /fx/convert?amount=&from=&to=&date=`, `GET /fx/rates?date=`, `GET /fx/status` (source, as-of, stale flag), `PATCH /transactions/{id}/fx` (override rate).
+- **Build order updates:** Phase 0 adds FX source verification, `fx-mcp` skeleton, MCP client and `.mcp.json`; Phase 1 adds the currency registry, Money type and the `v_transactions_reporting` view; Phase 2 adds rate resolution on write, backfill and display; Phase 4 adds `fx_exposure`; Phase 8 adds `fx_asof` to cache keys; Phase 12 runs the FX suite and updates README/DESIGN_NOTES.
+- **Definition of done additions:** with the `fx-mcp` container stopped, the app still works and visibly shows "approximate/stale rates"; a USD transaction entered by an INR user shows both amounts and appears correctly in INR dashboards and USD view; the FX suite results are in Postgres and Langfuse.

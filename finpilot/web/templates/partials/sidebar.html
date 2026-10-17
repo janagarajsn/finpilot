@@ -1,0 +1,44 @@
+{# Grouped navigation (shared by the desktop sidebar and the mobile drawer). #}
+{% from "partials/icons.html" import icon %}
+{% set link = "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors" %}
+{% set idle = "text-soft hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white" %}
+{% set on = "bg-brand-50 dark:bg-brand-500/15 text-accent font-medium" %}
+<div class="flex h-full flex-col gap-4 px-3 py-4">
+  <a href="/" class="flex items-center gap-2 px-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+    <span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-600 text-white text-sm" aria-hidden="true">F</span>FinPilot</a>
+
+  <details class="relative" x-data @click.outside="$el.removeAttribute('open')">
+    <summary class="list-none flex cursor-pointer items-center justify-between rounded-lg bg-brand-600 hover:bg-brand-700 px-3 py-2.5 text-sm font-medium text-white [&::-webkit-details-marker]:hidden">
+      <span class="flex items-center gap-2">{{ icon("plus", "h-4 w-4") }} Add</span>{{ icon("chevron", "h-4 w-4") }}</summary>
+    <div class="absolute inset-x-0 z-50 mt-1 rounded-lg bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-slate-200 dark:ring-slate-700 text-sm">
+      <button type="button" data-add-txn="expense" class="flex w-full items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">{{ icon("arrow-up", "h-4 w-4 text-neg") }} Expense</button>
+      <button type="button" data-add-txn="income" class="flex w-full items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">{{ icon("arrow-down", "h-4 w-4 text-pos") }} Income</button>
+      <a href="/app/import" class="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">{{ icon("upload", "h-4 w-4 text-accent") }} Import a statement</a>
+      <a href="/app/import#sample" class="flex items-center gap-2 rounded-md px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800">{{ icon("database", "h-4 w-4 text-accent") }} Load sample data</a>
+    </div>
+  </details>
+
+  <nav class="flex flex-1 flex-col gap-1" aria-label="Main">
+    {% for item in nav.main %}
+    {% if item.href %}
+    <a href="{{ item.href }}" class="{{ link }} {{ on if active == item.href else idle }}" {% if active == item.href %}aria-current="page"{% endif %}>{{ icon(item.icon) }}{{ item.label }}</a>
+    {% else %}
+    {% set open = active in item.children|map(attribute=0)|list %}
+    <details class="group" {% if open %}open{% endif %}>
+      <summary class="list-none {{ link }} {{ 'text-slate-900 dark:text-white font-medium' if open else idle }} cursor-pointer [&::-webkit-details-marker]:hidden">
+        {{ icon(item.icon) }}<span class="flex-1">{{ item.label }}</span>{{ icon("chevron", "h-4 w-4 transition-transform group-open:rotate-180 text-muted") }}</summary>
+      <div class="ml-5 mt-1 flex flex-col gap-0.5 border-l border-slate-200 dark:border-slate-700 pl-3">
+        {% for href, label in item.children %}
+        <a href="{{ href }}" class="rounded-md px-2 py-1.5 text-sm {{ on if active == href else idle }}" {% if active == href %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    {% endfor %}
+
+    <p class="eyebrow mt-auto px-3 pt-4">Tools</p>
+    {% for href, label, ic, admin_only in nav.tools if not admin_only or user.role == "admin" %}
+    <a href="{{ href }}" class="{{ link }} {{ on if active == href else idle }}" {% if active == href %}aria-current="page"{% endif %}>{{ icon(ic) }}{{ label }}</a>
+    {% endfor %}
+  </nav>
+</div>

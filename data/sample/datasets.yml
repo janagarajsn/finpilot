@@ -1,0 +1,43 @@
+# Sample datasets for "Load sample data" and `make seed-demo` (built by scripts/build_sample_data.py).
+# Each file uses the import template's columns, so it can also be uploaded on the Import page.
+# `recurring` = the fixed items declared as recurring rules when the dataset is loaded (they
+# drive the forecast's upcoming bills and income).
+datasets:
+  inr:
+    label: "India: rupees only"
+    description: "Salaried in Bengaluru: rent, car loan EMI, SIP, everyday spending. All amounts in INR."
+    file: inr_only.csv
+    currencies: [INR]
+    recurring:
+      - {kind: income, description: Salary from Acme Technologies, amount: 150000, currency: INR, day: 1, category: Salary}
+      - {kind: expense, description: House rent, amount: 28000, currency: INR, day: 3, category: Rent/Mortgage}
+      - {kind: expense, description: Mutual fund SIP, amount: 10000, currency: INR, day: 5, category: Savings/Investments}
+      - {kind: expense, description: Car loan EMI, amount: 14500, currency: INR, day: 10, category: Loan/EMI}
+      - {kind: expense, description: Netflix, amount: 799, currency: INR, day: 18, category: Subscriptions}
+  usd:
+    label: "US: dollars only"
+    description: "Salaried in Austin, paid twice a month: rent, car payment, brokerage savings. All amounts in USD."
+    file: usd_only.csv
+    currencies: [USD]
+    recurring:
+      - {kind: income, description: Paycheck from Northwind, amount: 3250, currency: USD, day: 1, category: Salary}
+      - {kind: income, description: Paycheck from Northwind, amount: 3250, currency: USD, day: 15, category: Salary}
+      - {kind: expense, description: Apartment rent, amount: 1850, currency: USD, day: 1, category: Rent/Mortgage}
+      - {kind: expense, description: Car payment, amount: 385, currency: USD, day: 12, category: Loan/EMI}
+      - {kind: expense, description: Netflix, amount: 17.99, currency: USD, day: 18, category: Subscriptions}
+  mixed:
+    label: "India + US: rupees and dollars"
+    description: "Salaried in Pune with a US freelance client paid in dollars and dollar-billed software. Reporting in INR."
+    file: inr_usd_mixed.csv
+    currencies: [INR, USD]
+    recurring:
+      - {kind: income, description: Salary from Bluebird Software, amount: 95000, currency: INR, day: 1, category: Salary}
+      - {kind: expense, description: House rent, amount: 22000, currency: INR, day: 4, category: Rent/Mortgage}
+      - {kind: expense, description: Mutual fund SIP, amount: 8000, currency: INR, day: 7, category: Savings/Investments}
+      - {kind: expense, description: ChatGPT Plus, amount: 20, currency: USD, day: 6, category: Subscriptions}
+      - {kind: expense, description: GitHub Copilot, amount: 10, currency: USD, day: 9, category: Subscriptions}
+
+# Which dataset "Load sample data" picks when none is chosen.
+default_for_currency:
+  INR: inr
+  USD: usd

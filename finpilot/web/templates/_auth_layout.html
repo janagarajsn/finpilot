@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="min-h-[70vh] flex items-center justify-center">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-6">
+      <a href="/" class="text-2xl font-bold text-accent">FinPilot</a>
+      <p class="text-sm text-muted mt-1">Your proactive money co-pilot</p>
+    </div>
+    <div class="bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-800 rounded-2xl p-6">
+      {% block card %}{% endblock %}
+    </div>
+    <div class="mt-4 text-center text-sm text-muted">{% block below %}{% endblock %}</div>
+  </div>
+</div>
+{% endblock %}

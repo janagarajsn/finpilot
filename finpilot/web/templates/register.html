@@ -1,0 +1,10 @@
+{% extends "_auth_layout.html" %}
+{% from "partials/field.html" import input, error, submit, currency_select %}
+{% block title %}Create account{% endblock %}
+{% block card %}
+<h1 class="text-lg font-semibold mb-4">Create your account</h1>
+<form id="register-form" method="post" action="/web/register" hx-post="/web/register" hx-target="#register-form" hx-select="#register-form" hx-swap="outerHTML">
+  {% include "partials/register_form_body.html" %}
+</form>
+{% endblock %}
+{% block below %}Already have an account? <a href="/login" class="text-accent underline underline-offset-2">Sign in</a>{% endblock %}

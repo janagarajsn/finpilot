@@ -1,0 +1,184 @@
+# Synthetic merchant catalog for evaluation personas (ground-truth categories are taxonomy slugs
+# or custom-category names). Descriptor placeholders: {ref} 12-digit ref, {card} masked card,
+# {store} store number, {mmdd} date, {city}, {vpa} UPI handle suffix, {n} 3-4 digit number.
+# `amount`: [median, lognormal sigma] in the merchant's region currency (IN → INR, US → USD).
+# Ambiguous merchants list `variants`; each transaction draws one variant (its own truth).
+# Many local merchants are deliberately NOT in config/rules_lexicon.yml (unseen-merchant tests).
+merchants:
+  # ======================================================================== INDIA
+  # ---- food delivery / dining
+  - {key: swiggy, region: IN, category: food_delivery, amount: [420, 0.45], descriptors: ["UPI/P2M/{ref}/SWIGGY/swiggy@axisbank/Order", "UPI-SWIGGY-SWIGGY.STORES@AXB-UTIB0000000-{ref}-ORDER", "SWIGGY BANGALORE"]}
+  - {key: zomato, region: IN, category: food_delivery, amount: [480, 0.5], descriptors: ["UPI/P2M/{ref}/Zomato/zomato@paytm", "UPI-ZOMATO-ZOMATO@HDFCBANK-HDFC0000001-{ref}-ORDER", "ZOMATO LTD GURGAON"]}
+  - {key: eatsure, region: IN, category: food_delivery, amount: [390, 0.4], descriptors: ["UPI/P2M/{ref}/EATSURE/eatsure@ybl"]}
+  - {key: chaayos, region: IN, category: dining_out, amount: [260, 0.35], descriptors: ["POS {card} CHAAYOS {city}", "UPI/P2M/{ref}/CHAAYOS/chaayos@icici"]}
+  - {key: thirdwave, region: IN, category: dining_out, amount: [340, 0.3], descriptors: ["POS {card} THIRD WAVE COFFEE {city}"]}
+  - {key: annapoorna, region: IN, category: dining_out, amount: [180, 0.4], descriptors: ["UPI/P2M/{ref}/ANNAPOORNA MESS/q{n}@ybl", "UPI-ANNAPOORNA MESS-Q{n}@YBL-YESB0YBLUPI-{ref}-PAY"]}
+  - {key: srisai, region: IN, category: dining_out, amount: [150, 0.4], descriptors: ["UPI/P2M/{ref}/SRI SAI TIFFIN CENTRE/paytmqr{n}@paytm"]}
+  - {key: truffles, region: IN, category: dining_out, amount: [1450, 0.4], descriptors: ["POS {card} TRUFFLES KORAMANGALA", "UPI/P2M/{ref}/TRUFFLES/truffles@hdfcbank"]}
+  - {key: toit, region: IN, category: dining_out, amount: [2400, 0.4], descriptors: ["POS {card} TOIT BREWPUB {city}"]}
+  # ---- groceries
+  - {key: bigbasket, region: IN, category: groceries, amount: [1650, 0.5], descriptors: ["UPI/P2M/{ref}/BIGBASKET/bigbasket@icici/Groceries", "BIGBASKET.COM"]}
+  - {key: blinkit, region: IN, category: groceries, amount: [620, 0.5], descriptors: ["UPI-BLINKIT-BLINKIT.PAYU@HDFCBANK-HDFC0MERUPI-{ref}-UPIINTENT"]}
+  - {key: zepto, region: IN, category: groceries, amount: [540, 0.5], descriptors: ["UPI/P2M/{ref}/ZEPTO MARKETPLACE PVT LTD/zepto@ybl"]}
+  - {key: dmart, region: IN, category: groceries, amount: [2300, 0.45], descriptors: ["POS/DMART AVENUE SUPERMARTS/{city}", "POS {card} AVENUE SUPERMARTS LTD"]}
+  - {key: kirana, region: IN, category: groceries, amount: [380, 0.6], descriptors: ["UPI/P2M/{ref}/SRI GANESH KIRANA/q{n}@ybl", "UPI/P2M/{ref}/LAKSHMI PROVISION STORES/paytmqr{n}@paytm"]}
+  - {key: freshmilk, region: IN, category: groceries, amount: [900, 0.2], descriptors: ["UPI/P2M/{ref}/COUNTRY DELIGHT/countrydelight@icici"]}
+  # ---- transport / fuel
+  - {key: uber_in, region: IN, category: transport, amount: [310, 0.5], descriptors: ["UPI/P2M/{ref}/Uber India/uber@icici/Ride", "UBER INDIA SYSTEMS PVT LTD"]}
+  - {key: ola, region: IN, category: transport, amount: [280, 0.5], descriptors: ["UPI/P2M/{ref}/Ola Cabs/olacabs@ybl"]}
+  - {key: rapido, region: IN, category: transport, amount: [95, 0.4], descriptors: ["UPI/P2M/{ref}/RAPIDO/rapido@axl/bike taxi"]}
+  - {key: metro, region: IN, category: transport, amount: [500, 0.1], descriptors: ["UPI/P2M/{ref}/BMRCL NAMMA METRO/bmrcl@sbi/recharge"]}
+  - {key: autorick, region: IN, category: transport, amount: [80, 0.4], descriptors: ["UPI/P2A/{ref}/RAJU AUTO/raju{n}@okaxis"]}
+  - {key: iocl, region: IN, category: fuel, amount: [2000, 0.3], descriptors: ["POS {card} INDIAN OIL PETROL PUMP {city}", "UPI/P2M/{ref}/IOCL FUEL STATION/iocl{n}@sbi"]}
+  - {key: hpcl, region: IN, category: fuel, amount: [1800, 0.3], descriptors: ["POS {card} HPCL SRI BALAJI FILLING STN"]}
+  # ---- utilities / telecom
+  - {key: bescom, region: IN, category: utilities, amount: [1450, 0.25], descriptors: ["BIL/ONL/{ref}/BESCOM/BLR", "UPI/P2M/{ref}/BESCOM/bescom@sbi"]}
+  - {key: jio, region: IN, category: utilities, amount: [299, 0.01], descriptors: ["UPI/P2M/{ref}/PhonePe Recharge Jio/jio@ybl", "JIO PREPAID RECHARGE"]}
+  - {key: airtel, region: IN, category: utilities, amount: [999, 0.05], descriptors: ["AIRTEL POSTPAID BILL {ref}", "UPI/P2M/{ref}/AIRTEL/airtel@icici"]}
+  - {key: actfiber, region: IN, category: utilities, amount: [1179, 0.01], descriptors: ["BIL/ONL/{ref}/ACT FIBERNET/BLR"]}
+  - {key: gas_in, region: IN, category: utilities, amount: [950, 0.1], descriptors: ["UPI/P2M/{ref}/INDANE GAS/indane@sbi"]}
+  # ---- subscriptions (INR)
+  - {key: netflix_in, region: IN, category: subscriptions, amount: [649, 0.0], descriptors: ["UPI-NETFLIX-NETFLIXUPI@HDFCBANK-HDFC0000001-{ref}-AUTOPAY", "NETFLIX.COM MUMBAI"]}
+  - {key: spotify_in, region: IN, category: subscriptions, amount: [119, 0.0], descriptors: ["SPOTIFY INDIA AUTOPAY {ref}"]}
+  - {key: hotstar, region: IN, category: subscriptions, amount: [299, 0.0], descriptors: ["UPI/P2M/{ref}/DISNEY HOTSTAR/hotstar@icici"]}
+  - {key: cultfit, region: IN, category: subscriptions, amount: [1599, 0.0], descriptors: ["UPI/P2M/{ref}/CULT.FIT/cultfit@hdfcbank"]}
+  - {key: ytpremium_in, region: IN, category: subscriptions, amount: [129, 0.0], descriptors: ["GOOGLE *YouTubePremium g.co/helppay#"]}
+  - {key: sonyliv, region: IN, category: subscriptions, amount: [299, 0.0], descriptors: ["UPI/P2M/{ref}/SONYLIV/sonyliv@ybl"]}
+  - {key: magzter, region: IN, category: subscriptions, amount: [449, 0.0], descriptors: ["MAGZTER GOLD SUBSCRIPTION {ref}"]}
+  # ---- shopping / entertainment / travel / health / education
+  - {key: flipkart, region: IN, category: shopping, amount: [1900, 0.8], descriptors: ["www.flipkart.com", "UPI/P2M/{ref}/FLIPKART/flipkart@axisbank"]}
+  - {key: myntra, region: IN, category: shopping, amount: [1700, 0.6], descriptors: ["UPI/P2M/{ref}/MYNTRA DESIGNS/myntra@icici"]}
+  - {key: decathlon, region: IN, category: shopping, amount: [2600, 0.6], descriptors: ["POS {card} DECATHLON SPORTS INDIA {city}"]}
+  - {key: chickpet, region: IN, category: shopping, amount: [3200, 0.6], descriptors: ["UPI/P2M/{ref}/SHREE KRISHNA SAREES/q{n}@ybl"]}
+  - {key: bms, region: IN, category: entertainment, amount: [650, 0.4], descriptors: ["UPI/P2M/{ref}/BOOKMYSHOW/bms@hdfcbank"]}
+  - {key: pvr, region: IN, category: entertainment, amount: [820, 0.3], descriptors: ["POS {card} PVR LIMITED {city}"]}
+  - {key: gamezone, region: IN, category: entertainment, amount: [700, 0.4], descriptors: ["UPI/P2M/{ref}/FUNCITY GAMING ARCADE/fc{n}@ybl"]}
+  - {key: irctc, region: IN, category: travel, amount: [1350, 0.6], descriptors: ["UPI/P2M/{ref}/IRCTC/irctc@sbi/Ticket"]}
+  - {key: indigo, region: IN, category: travel, amount: [5600, 0.4], descriptors: ["INDIGO AIRLINES {ref}", "UPI/P2M/{ref}/INTERGLOBE AVIATION/indigo@icici"]}
+  - {key: zostel, region: IN, category: travel, amount: [2100, 0.4], descriptors: ["UPI/P2M/{ref}/ZOSTEL GOA/zostel@ybl"]}
+  - {key: apollo, region: IN, category: health, amount: [560, 0.6], descriptors: ["UPI/P2M/{ref}/APOLLO PHARMACY/apollo@icici", "POS {card} APOLLO PHARMACY {city}"]}
+  - {key: clinic_in, region: IN, category: health, amount: [800, 0.3], descriptors: ["UPI/P2M/{ref}/DR SHARMA CHILD CARE/drsharma@okhdfcbank"]}
+  - {key: salon, region: IN, category: other, amount: [600, 0.4], descriptors: ["UPI/P2M/{ref}/GREEN LEAF SALON/greenleaf@ybl"]}
+  - {key: smscharges, region: IN, category: fees_interest, amount: [17.7, 0.0], descriptors: ["SMS ALERT CHARGES QTR {mmdd}"]}
+  - {key: atm_in, region: IN, category: cash_atm, amount: [3000, 0.4], descriptors: ["ATM-WDL/MG ROAD/{n}", "ATM WDL {mmdd} HDFC BANK ATM {city}"]}
+  # ---- custom-category merchants (truth = the user's custom category names)
+  - {key: supertails, region: IN, category: "Pet Care", amount: [1300, 0.4], descriptors: ["UPI/P2M/{ref}/SUPERTAILS/supertails@icici", "HEADS UP FOR TAILS {city}"]}
+  - {key: vet, region: IN, category: "Pet Care", amount: [900, 0.3], descriptors: ["UPI/P2M/{ref}/CESSNA LIFELINE VETERINARY/cessna@hdfcbank"]}
+  - {key: kumon, region: IN, category: "Tuition", amount: [4500, 0.0], descriptors: ["UPI/P2M/{ref}/KUMON INDIA EDUCATION/kumon@icici"]}
+  - {key: tutor, region: IN, category: "Tuition", amount: [3000, 0.0], descriptors: ["UPI/P2A/{ref}/PRIYA MATHS CLASSES/priya{n}@okaxis"]}
+  # ---- local merchants NOT in the rule lexicon (unseen-merchant evaluation)
+  - {key: vidyarthi, region: IN, category: dining_out, amount: [220, 0.3], descriptors: ["UPI/P2M/{ref}/VIDYARTHI BHAVAN/vb{n}@ybl"]}
+  - {key: udupi, region: IN, category: dining_out, amount: [260, 0.35], descriptors: ["POS {card} UDUPI GRAND {city}"]}
+  - {key: nandini, region: IN, category: groceries, amount: [140, 0.3], descriptors: ["UPI/P2M/{ref}/NANDINI MILK PARLOUR/q{n}@ybl"]}
+  - {key: freshtohome, region: IN, category: groceries, amount: [780, 0.4], descriptors: ["UPI/P2M/{ref}/FRESHTOHOME FOODS/fth@icici"]}
+  - {key: balaji_med, region: IN, category: health, amount: [430, 0.5], descriptors: ["UPI/P2M/{ref}/SHREE BALAJI MEDICALS/q{n}@paytm"]}
+  - {key: lenskart, region: IN, category: shopping, amount: [2800, 0.4], descriptors: ["UPI/P2M/{ref}/LENSKART SOLUTIONS/lenskart@ybl"]}
+  - {key: urbanco, region: IN, category: other, amount: [1100, 0.5], descriptors: ["UPI/P2M/{ref}/URBAN COMPANY/urbanclap@icici"]}
+  - {key: wonderla, region: IN, category: entertainment, amount: [1800, 0.3], descriptors: ["POS {card} WONDERLA HOLIDAYS {city}"]}
+  - {key: bounce, region: IN, category: transport, amount: [180, 0.4], descriptors: ["UPI/P2M/{ref}/BOUNCE ELECTRIC/bounce@axl"]}
+  - {key: aptassoc, region: IN, category: rent_mortgage, amount: [3500, 0.0], descriptors: ["NEFT-PRESTIGE APARTMENT OWNERS ASSOC-MAINTENANCE"]}
+  - {key: happypaws, region: IN, category: "Pet Care", amount: [1200, 0.3], descriptors: ["UPI/P2M/{ref}/HAPPY PAWS GROOMING/hp{n}@okaxis"]}
+  # ---- ambiguous (IN)
+  - key: amazon_in
+    region: IN
+    variants:
+      - {category: shopping, weight: 0.6, amount: [1500, 0.8], descriptors: ["AMAZON PAY INDIA PVT LTD", "UPI/P2M/{ref}/AMAZON/amazon@apl"]}
+      - {category: groceries, weight: 0.3, amount: [850, 0.4], descriptors: ["AMAZON FRESH {city}", "UPI/P2M/{ref}/AMAZON/amazon@apl"]}
+      - {category: subscriptions, weight: 0.1, amount: [1499, 0.0], descriptors: ["AMAZON PRIME MEMBERSHIP"]}
+  - key: paytm_wallet
+    region: IN
+    variants:
+      - {category: impulse_misc, weight: 0.6, amount: [150, 0.6], descriptors: ["PAYTM WALLET {ref}", "UPI/P2M/{ref}/PAYTM/paytm@paytm"]}
+      - {category: utilities, weight: 0.4, amount: [600, 0.3], descriptors: ["PAYTM WALLET {ref}", "UPI/P2M/{ref}/PAYTM RECHARGE/paytm@paytm"]}
+  - key: p2p_person
+    region: IN
+    variants:
+      - {category: transfers, weight: 0.5, amount: [2000, 0.8], descriptors: ["UPI/P2A/{ref}/RAHUL SHARMA/rahul@okhdfcbank", "IMPS/P2A/{ref}/ANITA RAO/TRANSFER"]}
+      - {category: other, weight: 0.5, amount: [700, 0.6], descriptors: ["UPI/P2A/{ref}/RAHUL SHARMA/rahul@okhdfcbank/dinner split", "UPI/P2A/{ref}/KAVYA N/gift"]}
+  - key: reliance_in
+    region: IN
+    variants:
+      - {category: groceries, weight: 0.6, amount: [1400, 0.5], descriptors: ["POS {card} RELIANCE RETAIL {city}"]}
+      - {category: shopping, weight: 0.4, amount: [3500, 0.6], descriptors: ["POS {card} RELIANCE RETAIL {city}"]}
+
+  # ======================================================================== UNITED STATES
+  - {key: starbucks, region: US, category: dining_out, amount: [6.4, 0.25], descriptors: ["CHECKCARD {mmdd} STARBUCKS STORE {store} {city} WA", "STARBUCKS {store} SEATTLE WA"]}
+  - {key: bluebottle, region: US, category: dining_out, amount: [7.5, 0.2], descriptors: ["SQ *BLUE BOTTLE COFFEE"]}
+  - {key: moonlight, region: US, category: dining_out, amount: [8.2, 0.25], descriptors: ["SQ *MOONLIGHT ROASTERS", "SQ *MOONLIGHT ROASTERS {city}"]}
+  - {key: pinedeli, region: US, category: dining_out, amount: [14.5, 0.3], descriptors: ["TST* PINE STREET DELI {n}"]}
+  - {key: shakeshack, region: US, category: dining_out, amount: [19, 0.3], descriptors: ["TST* SHAKE SHACK {n}"]}
+  - {key: lacasita, region: US, category: dining_out, amount: [42, 0.4], descriptors: ["LA CASITA MEXICAN GRILL {city} TX", "SQ *LA CASITA"]}
+  - {key: oaktable, region: US, category: dining_out, amount: [85, 0.4], descriptors: ["THE OAK TABLE {city} CA"]}
+  - {key: doordash, region: US, category: food_delivery, amount: [32, 0.4], descriptors: ["DOORDASH*CHIPOTLE", "DOORDASH*THAI BASIL", "DD *DOORDASH PANDA"]}
+  - {key: ubereats, region: US, category: food_delivery, amount: [28, 0.4], descriptors: ["UBER EATS *PENDING", "UBER *EATS HELP.UBER.COM CA"]}
+  - {key: grubhub, region: US, category: food_delivery, amount: [30, 0.4], descriptors: ["GRUBHUB*PIZZERIA {n}"]}
+  - {key: traderjoes, region: US, category: groceries, amount: [68, 0.4], descriptors: ["PURCHASE AUTHORIZED ON {mmdd} TRADER JOE S #{n} {city} CA", "TRADER JOE S #{n}"]}
+  - {key: wholefoods, region: US, category: groceries, amount: [92, 0.4], descriptors: ["WHOLEFDS MKT {store} AUSTIN TX"]}
+  - {key: kroger, region: US, category: groceries, amount: [75, 0.4], descriptors: ["KROGER #{n} {city}"]}
+  - {key: farmersmkt, region: US, category: groceries, amount: [35, 0.4], descriptors: ["SQ *SUNNYSIDE FARMERS MARKET"]}
+  - {key: lyft, region: US, category: transport, amount: [18, 0.4], descriptors: ["LYFT *RIDE TUE 8PM", "LYFT *RIDE SAT 11PM"]}
+  - {key: uber_us, region: US, category: transport, amount: [21, 0.4], descriptors: ["UBER *TRIP HELP.UBER.COM CA"]}
+  - {key: clipper, region: US, category: transport, amount: [40, 0.1], descriptors: ["CLIPPER SYSTEMS 877-878-8883 CA"]}
+  - {key: parkme, region: US, category: transport, amount: [12, 0.3], descriptors: ["PARKMOBILE {n} ATLANTA GA"]}
+  - {key: shell, region: US, category: fuel, amount: [48, 0.3], descriptors: ["SHELL OIL {store} HOUSTON TX"]}
+  - {key: chevron, region: US, category: fuel, amount: [52, 0.3], descriptors: ["CHEVRON {store} {city}"]}
+  - {key: comcast, region: US, category: utilities, amount: [89.99, 0.0], descriptors: ["COMCAST CABLE COMM 800-COMCAST PA"]}
+  - {key: pge, region: US, category: utilities, amount: [120, 0.25], descriptors: ["PGANDE WEB ONLINE {ref}", "PG&E WEB ONLINE"]}
+  - {key: tmobile, region: US, category: utilities, amount: [75, 0.0], descriptors: ["T-MOBILE*AUTOPAY {ref}"]}
+  - {key: citywater, region: US, category: utilities, amount: [45, 0.2], descriptors: ["CITY OF AUSTIN UTILITIES WEB PMT"]}
+  - {key: netflix_us, region: US, category: subscriptions, amount: [15.49, 0.0], descriptors: ["NETFLIX.COM 866-579-7172 CA"]}
+  - {key: spotify_us, region: US, category: subscriptions, amount: [11.99, 0.0], descriptors: ["SPOTIFY USA 877-778-1161 NY"]}
+  - {key: icloud, region: US, category: subscriptions, amount: [2.99, 0.0], descriptors: ["APPLE.COM/BILL 866-712-7753 CA"]}
+  - {key: nytimes, region: US, category: subscriptions, amount: [17, 0.0], descriptors: ["NYTIMES*NYTDIGITAL {ref}"]}
+  - {key: peloton, region: US, category: subscriptions, amount: [44, 0.0], descriptors: ["PELOTON* MEMBERSHIP {ref}"]}
+  - {key: openai, region: US, category: subscriptions, amount: [20, 0.0], descriptors: ["OPENAI *CHATGPT SUBSCR"]}
+  - {key: aws, region: US, category: subscriptions, amount: [38, 0.35], descriptors: ["AWS EMEA aws.amazon.co", "AMAZON WEB SERVICES AWS.AMAZON.COM WA"]}
+  - {key: github, region: US, category: subscriptions, amount: [4, 0.0], descriptors: ["GITHUB, INC. {ref}"]}
+  - {key: target, region: US, category: shopping, amount: [64, 0.6], descriptors: ["TARGET {store} MINNEAPOLIS MN"]}
+  - {key: bestbuy, region: US, category: shopping, amount: [140, 0.7], descriptors: ["BEST BUY {store}"]}
+  - {key: etsy, region: US, category: shopping, amount: [38, 0.5], descriptors: ["ETSY.COM*{ref}", "PAYPAL *ETSY"]}
+  - {key: thrift, region: US, category: shopping, amount: [27, 0.5], descriptors: ["SQ *REDWOOD THRIFT COLLECTIVE"]}
+  - {key: amc, region: US, category: entertainment, amount: [24, 0.3], descriptors: ["AMC THEATRES {n} ONLINE"]}
+  - {key: steam, region: US, category: entertainment, amount: [29, 0.5], descriptors: ["STEAM PURCHASE 425-889-9642 WA"]}
+  - {key: bowling, region: US, category: entertainment, amount: [55, 0.3], descriptors: ["SQ *LUCKY STRIKE LANES"]}
+  - {key: delta, region: US, category: travel, amount: [380, 0.4], descriptors: ["DELTA AIR {ref}"]}
+  - {key: airbnb, region: US, category: travel, amount: [420, 0.5], descriptors: ["AIRBNB * HMXYZ{n}"]}
+  - {key: cvs, region: US, category: health, amount: [24, 0.6], descriptors: ["CVS/PHARMACY #{store} BOSTON MA"]}
+  - {key: dentist, region: US, category: health, amount: [180, 0.3], descriptors: ["BRIGHT SMILES DENTAL GROUP {city}"]}
+  - {key: atm_us, region: US, category: cash_atm, amount: [100, 0.3], descriptors: ["ATM WITHDRAWAL {n} MAIN ST"]}
+  - {key: odfee, region: US, category: fees_interest, amount: [35, 0.0], descriptors: ["OVERDRAFT FEE {mmdd}"]}
+  - {key: barber, region: US, category: other, amount: [32, 0.2], descriptors: ["SQ *FRESH FADES BARBERSHOP"]}
+  # ---- local merchants NOT in the rule lexicon (unseen-merchant evaluation)
+  - {key: sweetloaf, region: US, category: dining_out, amount: [11, 0.3], descriptors: ["SQ *SWEET LOAF BAKERY"]}
+  - {key: greenvalley, region: US, category: groceries, amount: [46, 0.4], descriptors: ["GREEN VALLEY CO-OP {store}"]}
+  - {key: ross, region: US, category: shopping, amount: [48, 0.5], descriptors: ["ROSS STORES #{n}"]}
+  - {key: homedepot, region: US, category: shopping, amount: [85, 0.7], descriptors: ["THE HOME DEPOT #{n}"]}
+  - {key: cleanspin, region: US, category: other, amount: [14, 0.2], descriptors: ["CLEAN SPIN LAUNDROMAT"]}
+  - {key: citygym, region: US, category: subscriptions, amount: [39, 0.0], descriptors: ["CITYGYM MONTHLY DUES {ref}"]}
+  - {key: yoga, region: US, category: subscriptions, amount: [110, 0.0], descriptors: ["SQ *SUNRISE YOGA STUDIO"]}
+  - {key: daycare, region: US, category: education, amount: [1250, 0.0], descriptors: ["BRIGHTWHEEL*LITTLE OAKS DAYCARE"]}
+  - {key: quicklube, region: US, category: transport, amount: [65, 0.2], descriptors: ["QUICK LUBE EXPRESS {store}"]}
+  - {key: urgentcare, region: US, category: health, amount: [150, 0.3], descriptors: ["CARBON HEALTH URGENT {city}"]}
+  - {key: kindle, region: US, category: subscriptions, amount: [11.99, 0.0], descriptors: ["KINDLE SVCS*{ref}"]}
+  # ---- ambiguous (US)
+  - key: amazon_us
+    region: US
+    variants:
+      - {category: shopping, weight: 0.65, amount: [42, 0.8], descriptors: ["AMZN Mktp US*{ref}", "Amazon.com*{ref} Amzn.com/bill WA"]}
+      - {category: groceries, weight: 0.25, amount: [58, 0.4], descriptors: ["AMAZON FRESH*{ref}", "AMZN Mktp US*{ref}"]}
+      - {category: subscriptions, weight: 0.10, amount: [14.99, 0.0], descriptors: ["AMAZON PRIME*{ref}"]}
+  - key: costco
+    region: US
+    variants:
+      - {category: groceries, weight: 0.7, amount: [160, 0.4], descriptors: ["COSTCO WHSE #{n} SEATTLE WA"]}
+      - {category: shopping, weight: 0.3, amount: [240, 0.6], descriptors: ["COSTCO WHSE #{n} SEATTLE WA"]}
+  - key: venmo
+    region: US
+    variants:
+      - {category: transfers, weight: 0.5, amount: [60, 0.8], descriptors: ["VENMO PAYMENT {ref}"]}
+      - {category: other, weight: 0.5, amount: [25, 0.6], descriptors: ["VENMO PAYMENT {ref}"]}
+  - key: walmart
+    region: US
+    variants:
+      - {category: groceries, weight: 0.6, amount: [70, 0.4], descriptors: ["WAL-MART #{store} {city}"]}
+      - {category: shopping, weight: 0.4, amount: [55, 0.6], descriptors: ["WAL-MART #{store} {city}"]}

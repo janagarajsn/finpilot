@@ -1,0 +1,22 @@
+# Advice scope (finpilot/trail/scope.py): FinPilot suggests what to do with the user's OWN money
+# using its computed levers (cut a category, cancel a subscription, delay a purchase, move money to
+# savings). It must not give specific investment, tax or legal directives. Enforced by the prompts
+# and by these patterns on every chat answer and recommendation (a match → retry with the message,
+# then the deterministic fallback). Patterns run on lower-cased text.
+directives:
+  investment:
+    message: "do not recommend buying or selling specific investments; suggest a registered adviser instead"
+    patterns:
+      - '\b(buy|sell|short|purchase|invest(ing)? in|put (your |the )?money (in|into)|switch (to|into)|move (your )?money (in|into))\b[^.;]{0,40}\b(shares?|stocks?|equit(y|ies)|crypto(currency|currencies)?|bitcoin|ethereum|options|futures|ipos?|etfs?|index funds?|small[- ]cap|mid[- ]cap|large[- ]cap|bonds?|gold|reits?|nfts?)\b'
+      - '\bguaranteed (returns?|profits?)\b'
+      - '\b(this|the) (stock|share|fund|coin) (will|is going to) (go up|rise|double)\b'
+  tax:
+    message: "do not give tax filing or deduction instructions; suggest a tax professional instead"
+    patterns:
+      - '\b(claim|declare|deduct|avoid|evade|hide)\b[^.;]{0,30}\b(tax|taxes|income tax|80c|80d|hra|deductions?|itr|irs)\b'
+      - '\bsection 80[a-z]*\b'
+      - '\b(file|submit) (your )?(itr|tax return|taxes)\b'
+  legal:
+    message: "do not give legal directives; suggest a lawyer or the bank's dispute process instead"
+    patterns:
+      - '\b(sue|lawsuit|legal action|take (them|it) to court|file (a )?(police )?(case|fir|complaint) against)\b'
