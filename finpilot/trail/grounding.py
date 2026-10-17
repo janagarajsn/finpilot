@@ -19,7 +19,7 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
@@ -393,7 +393,11 @@ class GuardResult:
         }
 
 
-def guarded_json[T: BaseModel](
+# A TypeVar, not PEP 695 `def f[T: ...]`: the hackathon's CI compiles every file with Python 3.11.
+T = TypeVar("T", bound=BaseModel)
+
+
+def guarded_json(  # noqa: UP047
     llm: Any,
     prompt_key: str,
     variables: dict[str, Any],
